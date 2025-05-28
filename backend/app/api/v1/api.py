@@ -2,7 +2,7 @@ from fastapi import APIRouter
 
 from app.api.v1 import (
     auth, users, vehicles, repair_orders, workers,
-    services, materials, feedback, wages, analytics, admin
+    services, materials, feedback, wages, analytics, admin, logs
 )
 
 api_router = APIRouter()
@@ -29,3 +29,6 @@ api_router.include_router(analytics.router, prefix="/analytics", tags=["数据�
 
 # 管理员路由
 api_router.include_router(admin.router, prefix="/admin", tags=["系统管理"])
+
+# 日志管理路由
+api_router.include_router(logs.router, prefix="/logs", tags=["日志管理"])

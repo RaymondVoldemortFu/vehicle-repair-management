@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.config.settings import settings
 from app.models.user import User
 from app.models.admin import Admin
-from app.models.worker import RepairWorker
+from app.models.repair_worker import RepairWorker
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

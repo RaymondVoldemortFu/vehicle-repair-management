@@ -42,6 +42,11 @@ class UserProfile(UserResponse):
     pass
 
 
+class User(UserResponse):
+    """用户完整信息，用于认证和授权"""
+    pass
+
+
 class PasswordChange(BaseSchema):
     old_password: str = Field(..., description="旧密码")
     new_password: str = Field(..., min_length=6, max_length=50, description="新密码") 

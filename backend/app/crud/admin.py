@@ -1,27 +1,10 @@
-from typing import Optional
+from typing import Optional, List
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from app.crud.base import CRUDBase
-from app.models.admin import Admin
-from app.schemas.base import BaseSchema
+from app.models.admin import Admin, AdminStatus, AdminRole
+from app.schemas.admin import AdminCreate, AdminUpdate
 from app.core.security import get_password_hash, verify_password
-
-
-class AdminCreate(BaseSchema):
-    username: str
-    name: str
-    password: str
-    email: str
-    phone: Optional[str] = None
-    role: str
-
-
-class AdminUpdate(BaseSchema):
-    name: Optional[str] = None
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    role: Optional[str] = None
-    status: Optional[str] = None
 
 
 class CRUDAdmin(CRUDBase[Admin, AdminCreate, AdminUpdate]):
@@ -63,7 +46,7 @@ class CRUDAdmin(CRUDBase[Admin, AdminCreate, AdminUpdate]):
 
     def is_active(self, admin: Admin) -> bool:
         """检查管理员是否活跃"""
-        return admin.status == "active"
+        return admin.status == AdminStatus.ACTIVE
 
     def update_password(self, db: Session, *, admin: Admin, new_password: str) -> Admin:
         """更新管理员密码"""
@@ -72,6 +55,26 @@ class CRUDAdmin(CRUDBase[Admin, AdminCreate, AdminUpdate]):
         db.commit()
         db.refresh(admin)
         return admin
+
+    def verify_password(self, plain_password: str, hashed_password: str) -> bool:
+        """验证密码"""
+        return verify_password(plain_password, hashed_password)
+
+    def get_password_hash(self, password: str) -> str:
+        """获取密码哈希"""
+        return get_password_hash(password)
+
+    def get_active_admins(self, db: Session) -> List[Admin]:
+        """获取活跃管理员列表"""
+        return db.query(Admin).filter(
+            and_(Admin.status == AdminStatus.ACTIVE, Admin.is_deleted == False)
+        ).all()
+
+    def get_super_admins(self, db: Session) -> List[Admin]:
+        """获取超级管理员列表"""
+        return db.query(Admin).filter(
+            and_(Admin.role == AdminRole.SUPER_ADMIN, Admin.is_deleted == False)
+        ).all()
 
 
 admin_crud = CRUDAdmin(Admin) 

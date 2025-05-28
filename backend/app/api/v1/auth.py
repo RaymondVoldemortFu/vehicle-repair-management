@@ -1,44 +1,78 @@
 from datetime import timedelta
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from app.config.database import get_db
-from app.config.settings import settings
-from app.core.security import create_access_token
-from app.crud.user import user_crud
-from app.crud.admin import admin_crud
-from app.crud.repair_worker import repair_worker_crud
-from app.schemas.user import UserLogin
-from app.schemas.base import MessageResponse
+from app.api import deps
+from app.core import security
+from app.config import settings
+from app.crud import user as user_crud
+from app.crud import admin as admin_crud
+from app.crud import repair_worker as repair_worker_crud
+from app.schemas.token import Token
+from app.schemas.user import User
+from app.schemas.admin import Admin
+from app.schemas.repair_worker import RepairWorker
+from app.config.logging import get_api_logger, log_api_call, log_security_event
 
 router = APIRouter()
+logger = get_api_logger()
 
-
-@router.post("/login/user", response_model=dict)
+@router.post("/login/user", response_model=Token)
+@log_api_call
 def login_user(
-    user_credentials: UserLogin,
-    db: Session = Depends(get_db)
+    request: Request,
+    db: Session = Depends(deps.get_db),
+    form_data: OAuth2PasswordRequestForm = Depends()
 ) -> Any:
-    """用户登录"""
+    """
+    用户登录
+    """
+    client_ip = request.client.host
+    user_agent = request.headers.get("user-agent", "")
+    
+    logger.info(f"用户登录尝试 - 手机号: {form_data.username}, IP: {client_ip}")
+    
+    # 验证用户凭据
     user = user_crud.authenticate(
-        db, phone=user_credentials.phone, password=user_credentials.password
+        db, phone=form_data.username, password=form_data.password
     )
     if not user:
+        logger.warning(f"用户登录失败 - 无效凭据, 手机号: {form_data.username}, IP: {client_ip}")
+        log_security_event(
+            "登录失败", 
+            f"无效凭据 - 手机号: {form_data.username}, IP: {client_ip}, User-Agent: {user_agent}"
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="手机号或密码错误"
-        )
-    elif not user_crud.is_active(user):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="用户账户已被禁用"
+            detail="手机号或密码错误",
         )
     
+    # 检查用户状态
+    if not user_crud.is_active(user):
+        logger.warning(f"用户登录失败 - 账户未激活, 用户ID: {user.id}, IP: {client_ip}")
+        log_security_event(
+            "登录失败", 
+            f"账户未激活 - 用户ID: {user.id}, IP: {client_ip}", 
+            user.id
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="账户未激活",
+        )
+    
+    # 生成访问令牌
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        subject=user.id, expires_delta=access_token_expires
+    access_token = security.create_access_token(
+        user.id, expires_delta=access_token_expires
+    )
+    
+    logger.info(f"用户登录成功 - 用户ID: {user.id}, 姓名: {user.name}, IP: {client_ip}")
+    log_security_event(
+        "登录成功", 
+        f"用户登录 - 用户ID: {user.id}, IP: {client_ip}, User-Agent: {user_agent}", 
+        user.id
     )
     
     return {
@@ -48,34 +82,65 @@ def login_user(
             "id": user.id,
             "name": user.name,
             "phone": user.phone,
-            "email": user.email
+            "email": user.email,
+            "status": user.status
         }
     }
 
-
-@router.post("/login/admin", response_model=dict)
+@router.post("/login/admin", response_model=Token)
+@log_api_call
 def login_admin(
-    form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db)
+    request: Request,
+    db: Session = Depends(deps.get_db),
+    form_data: OAuth2PasswordRequestForm = Depends()
 ) -> Any:
-    """管理员登录"""
+    """
+    管理员登录
+    """
+    client_ip = request.client.host
+    user_agent = request.headers.get("user-agent", "")
+    
+    logger.info(f"管理员登录尝试 - 用户名: {form_data.username}, IP: {client_ip}")
+    
+    # 验证管理员凭据
     admin = admin_crud.authenticate(
         db, username=form_data.username, password=form_data.password
     )
     if not admin:
+        logger.warning(f"管理员登录失败 - 无效凭据, 用户名: {form_data.username}, IP: {client_ip}")
+        log_security_event(
+            "管理员登录失败", 
+            f"无效凭据 - 用户名: {form_data.username}, IP: {client_ip}, User-Agent: {user_agent}"
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户名或密码错误"
-        )
-    elif not admin_crud.is_active(admin):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="管理员账户已被禁用"
+            detail="用户名或密码错误",
         )
     
+    # 检查管理员状态
+    if not admin_crud.is_active(admin):
+        logger.warning(f"管理员登录失败 - 账户未激活, 管理员ID: {admin.id}, IP: {client_ip}")
+        log_security_event(
+            "管理员登录失败", 
+            f"账户未激活 - 管理员ID: {admin.id}, IP: {client_ip}", 
+            admin.id
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="账户未激活",
+        )
+    
+    # 生成访问令牌
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        subject=admin.id, expires_delta=access_token_expires
+    access_token = security.create_access_token(
+        admin.id, expires_delta=access_token_expires, user_type="admin"
+    )
+    
+    logger.info(f"管理员登录成功 - 管理员ID: {admin.id}, 用户名: {admin.username}, IP: {client_ip}")
+    log_security_event(
+        "管理员登录成功", 
+        f"管理员登录 - 管理员ID: {admin.id}, IP: {client_ip}, User-Agent: {user_agent}", 
+        admin.id
     )
     
     return {
@@ -86,32 +151,64 @@ def login_admin(
             "username": admin.username,
             "name": admin.name,
             "role": admin.role,
-            "email": admin.email
+            "status": admin.status
         }
     }
 
-
-@router.post("/login/worker", response_model=dict)
+@router.post("/login/worker", response_model=Token)
+@log_api_call
 def login_worker(
-    form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db)
+    request: Request,
+    db: Session = Depends(deps.get_db),
+    form_data: OAuth2PasswordRequestForm = Depends()
 ) -> Any:
-    """维修工人登录（使用员工编号）"""
-    worker = repair_worker_crud.get_by_employee_id(db, employee_id=form_data.username)
+    """
+    维修工人登录
+    """
+    client_ip = request.client.host
+    user_agent = request.headers.get("user-agent", "")
+    
+    logger.info(f"维修工人登录尝试 - 工号: {form_data.username}, IP: {client_ip}")
+    
+    # 验证工人凭据
+    worker = repair_worker_crud.authenticate(
+        db, employee_id=form_data.username, password=form_data.password
+    )
     if not worker:
+        logger.warning(f"维修工人登录失败 - 无效凭据, 工号: {form_data.username}, IP: {client_ip}")
+        log_security_event(
+            "维修工人登录失败", 
+            f"无效凭据 - 工号: {form_data.username}, IP: {client_ip}, User-Agent: {user_agent}"
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="员工编号不存在"
-        )
-    elif not repair_worker_crud.is_active(worker):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="维修工人账户已被禁用"
+            detail="工号或密码错误",
         )
     
+    # 检查工人状态
+    if not repair_worker_crud.is_active(worker):
+        logger.warning(f"维修工人登录失败 - 账户未激活, 工人ID: {worker.id}, IP: {client_ip}")
+        log_security_event(
+            "维修工人登录失败", 
+            f"账户未激活 - 工人ID: {worker.id}, IP: {client_ip}", 
+            worker.id
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="账户未激活",
+        )
+    
+    # 生成访问令牌
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        subject=worker.id, expires_delta=access_token_expires
+    access_token = security.create_access_token(
+        worker.id, expires_delta=access_token_expires, user_type="worker"
+    )
+    
+    logger.info(f"维修工人登录成功 - 工人ID: {worker.id}, 姓名: {worker.name}, IP: {client_ip}")
+    log_security_event(
+        "维修工人登录成功", 
+        f"维修工人登录 - 工人ID: {worker.id}, IP: {client_ip}, User-Agent: {user_agent}", 
+        worker.id
     )
     
     return {
@@ -122,14 +219,20 @@ def login_worker(
             "employee_id": worker.employee_id,
             "name": worker.name,
             "skill_type": worker.skill_type,
-            "skill_level": worker.skill_level
+            "status": worker.status
         }
     }
 
-
-@router.post("/test-token", response_model=MessageResponse)
+@router.post("/test-token")
+@log_api_call
 def test_token(
-    current_user: Any = Depends()  # 这里可以根据需要使用不同的依赖
+    request: Request,
+    current_user: User = Depends(deps.get_current_user)
 ) -> Any:
-    """测试令牌有效性"""
-    return MessageResponse(message="令牌有效", success=True) 
+    """
+    测试访问令牌
+    """
+    client_ip = request.client.host
+    logger.info(f"令牌验证成功 - 用户ID: {current_user.id}, IP: {client_ip}")
+    
+    return {"message": "令牌有效", "user_id": current_user.id} 

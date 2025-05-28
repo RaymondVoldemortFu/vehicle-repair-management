@@ -8,8 +8,8 @@ from app.config.database import get_db
 from app.config.settings import settings
 from app.models.user import User
 from app.models.admin import Admin
-from app.models.worker import RepairWorker
-from app.services.auth_service import AuthService
+from app.models.repair_worker import RepairWorker
+from app.service.auth_service import AuthService
 
 security = HTTPBearer()
 

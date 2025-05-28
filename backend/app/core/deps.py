@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.config.database import get_db
 from app.core.security import verify_token
 from app.models import User, Admin, RepairWorker
+from app.models.admin import AdminStatus, AdminRole
 from app.crud.user import user_crud
 from app.crud.admin import admin_crud
 from app.crud.repair_worker import repair_worker_crud
@@ -64,7 +65,7 @@ def get_current_admin(
             detail="管理员不存在"
         )
     
-    if admin.status != "active":
+    if admin.status != AdminStatus.ACTIVE:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="管理员账户已被禁用"
@@ -121,4 +122,16 @@ def get_current_active_worker(
     current_worker: RepairWorker = Depends(get_current_worker),
 ) -> RepairWorker:
     """获取当前活跃维修工人"""
-    return current_worker 
+    return current_worker
+
+
+def get_current_super_admin(
+    current_admin: Admin = Depends(get_current_admin),
+) -> Admin:
+    """获取当前超级管理员"""
+    if current_admin.role != AdminRole.SUPER_ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="需要超级管理员权限"
+        )
+    return current_admin 

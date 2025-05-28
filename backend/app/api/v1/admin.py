@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.config.database import get_db
 from app.core.deps import get_current_active_admin, get_current_super_admin
 from app.crud.admin import admin_crud
-from app.models.admin import Admin
+from app.models.admin import Admin, AdminStatus
 from app.schemas.admin import (
     AdminCreate, AdminUpdate, AdminResponse, 
     AdminDetail, AdminPasswordUpdate
@@ -102,7 +102,7 @@ def change_admin_password(
 ) -> Any:
     """修改当前管理员密码"""
     # 验证旧密码
-    if not admin_crud.verify_password(password_update.old_password, current_admin.hashed_password):
+    if not admin_crud.verify_password(password_update.old_password, current_admin.password_hash):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="旧密码错误"
@@ -110,7 +110,7 @@ def change_admin_password(
     
     # 更新密码
     hashed_password = admin_crud.get_password_hash(password_update.new_password)
-    admin_crud.update(db, db_obj=current_admin, obj_in={"hashed_password": hashed_password})
+    admin_crud.update(db, db_obj=current_admin, obj_in={"password_hash": hashed_password})
     
     return MessageResponse(message="密码修改成功")
 
@@ -212,7 +212,7 @@ def activate_admin(
             detail="管理员不存在"
         )
     
-    admin = admin_crud.update(db, db_obj=admin, obj_in={"is_active": True})
+    admin = admin_crud.update(db, db_obj=admin, obj_in={"status": AdminStatus.ACTIVE})
     return admin
 
 
@@ -238,7 +238,7 @@ def deactivate_admin(
             detail="不能停用自己"
         )
     
-    admin = admin_crud.update(db, db_obj=admin, obj_in={"is_active": False})
+    admin = admin_crud.update(db, db_obj=admin, obj_in={"status": AdminStatus.INACTIVE})
     return admin
 
 

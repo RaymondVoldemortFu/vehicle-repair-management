@@ -11,6 +11,17 @@ class SkillLevel(str, enum.Enum):
     EXPERT = "expert"
 
 
+class SkillType(str, enum.Enum):
+    MECHANICAL = "mechanical"
+    ELECTRICAL = "electrical"
+    BODYWORK = "bodywork"
+    ENGINE = "engine"
+    TRANSMISSION = "transmission"
+    BRAKE = "brake"
+    SUSPENSION = "suspension"
+    AIR_CONDITIONING = "air_conditioning"
+
+
 class WorkerStatus(str, enum.Enum):
     ACTIVE = "active"
     INACTIVE = "inactive"
@@ -30,6 +41,7 @@ class RepairWorker(BaseModel):
     status = Column(Enum(WorkerStatus), default=WorkerStatus.ACTIVE, nullable=False, comment="状态")
     hire_date = Column(Date, nullable=False, comment="入职日期")
     certifications = Column(Text, nullable=True, comment="资质证书")
+    hashed_password = Column(String(255), nullable=False, comment="密码哈希")
 
     # 关系
     order_assignments = relationship("RepairOrderWorker", back_populates="worker")
