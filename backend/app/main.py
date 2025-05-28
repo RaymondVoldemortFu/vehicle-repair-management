@@ -18,7 +18,9 @@ app = FastAPI(
     title="车辆维修管理系统",
     description="Vehicle Repair Management System API",
     version="1.0.0",
-    openapi_url=f"{settings.API_V1_STR}/openapi.json"
+    docs_url="/docs",
+    redoc_url="/redoc",
+    # openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
 
 # 记录应用启动
@@ -85,7 +87,7 @@ if __name__ == "__main__":
     uvicorn.run(
         app, 
         host="127.0.0.1",
-        port=8001,
+        port=8000,
         log_config=None,  # 禁用uvicorn默认日志配置，使用我们的配置
-        access_log=False  # 禁用uvicorn访问日志，使用我们的中间件
+        access_log=False,  # 禁用uvicorn访问日志，使用我们的中间件
     )
