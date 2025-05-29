@@ -7,7 +7,8 @@ from app.models.user import UserStatus
 
 class UserBase(BaseSchema):
     name: str = Field(..., min_length=1, max_length=100, description="用户姓名")
-    phone: str = Field(..., min_length=11, max_length=20, description="手机号码")
+    username: str = Field(..., min_length=3, max_length=50, description="用户名")
+    phone: Optional[str] = Field(None, min_length=11, max_length=20, description="手机号码")
     email: Optional[EmailStr] = Field(None, description="邮箱地址")
     address: Optional[str] = Field(None, max_length=500, description="联系地址")
 
@@ -18,6 +19,7 @@ class UserCreate(UserBase):
 
 class UserUpdate(BaseSchema):
     name: Optional[str] = Field(None, min_length=1, max_length=100, description="用户姓名")
+    username: Optional[str] = Field(None, min_length=3, max_length=50, description="用户名")
     phone: Optional[str] = Field(None, min_length=11, max_length=20, description="手机号码")
     email: Optional[EmailStr] = Field(None, description="邮箱地址")
     address: Optional[str] = Field(None, max_length=500, description="联系地址")
@@ -26,14 +28,15 @@ class UserUpdate(BaseSchema):
 
 class UserResponse(BaseResponse):
     name: str
-    phone: str
+    username: str
+    phone: Optional[str]
     email: Optional[str]
     address: Optional[str]
     status: UserStatus
 
 
 class UserLogin(BaseSchema):
-    phone: str = Field(..., description="手机号码")
+    username: str = Field(..., description="用户名")
     password: str = Field(..., description="密码")
 
 

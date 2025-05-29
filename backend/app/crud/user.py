@@ -13,6 +13,20 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         super().__init__(model)
         self.logger = get_crud_logger()
 
+    def get_by_username(self, db: Session, *, username: str) -> Optional[User]:
+        """根据用户名获取用户"""
+        self.logger.debug(f"查询用户 - 用户名: {username}")
+        user = db.query(User).filter(
+            and_(User.username == username, User.is_deleted == False)
+        ).first()
+        
+        if user:
+            self.logger.info(f"用户查询成功 - 用户ID: {user.id}, 用户名: {username}")
+        else:
+            self.logger.warning(f"用户查询失败 - 用户名不存在: {username}")
+        
+        return user
+
     def get_by_phone(self, db: Session, *, phone: str) -> Optional[User]:
         """根据手机号获取用户"""
         self.logger.debug(f"查询用户 - 手机号: {phone}")
@@ -43,11 +57,12 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
 
     def create(self, db: Session, *, obj_in: UserCreate) -> User:
         """创建用户"""
-        self.logger.info(f"开始创建用户 - 手机号: {obj_in.phone}, 邮箱: {obj_in.email}")
+        self.logger.info(f"开始创建用户 - 用户名: {obj_in.username}, 姓名: {obj_in.name}")
         
         try:
             db_obj = User(
                 name=obj_in.name,
+                username=obj_in.username,
                 phone=obj_in.phone,
                 email=obj_in.email,
                 address=obj_in.address,
@@ -59,43 +74,40 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             
             # 记录数据库操作
             log_database_operation("CREATE", "users", db_obj.id, f"创建用户: {obj_in.name}")
-            self.logger.info(f"用户创建成功 - 用户ID: {db_obj.id}, 姓名: {obj_in.name}")
+            self.logger.info(f"用户创建成功 - 用户ID: {db_obj.id}, 用户名: {obj_in.username}")
             
             return db_obj
         except Exception as e:
-            self.logger.error(f"用户创建失败 - 手机号: {obj_in.phone}, 错误: {str(e)}")
+            self.logger.error(f"用户创建失败 - 用户名: {obj_in.username}, 错误: {str(e)}")
             db.rollback()
             raise
 
-    def authenticate(self, db: Session, *, phone: str, password: str) -> Optional[User]:
+    def authenticate(self, db: Session, *, username: str, password: str) -> Optional[User]:
         """用户认证"""
-        self.logger.info(f"用户认证尝试 - 手机号: {phone}")
+        self.logger.info(f"用户认证尝试 - 用户名: {username}")
         
-        user = self.get_by_phone(db, phone=phone)
+        user = self.get_by_username(db, username=username)
         if not user:
-            self.logger.warning(f"认证失败 - 用户不存在: {phone}")
-            log_security_event("登录失败", f"用户不存在 - 手机号: {phone}")
+            self.logger.warning(f"认证失败 - 用户不存在: {username}")
+            log_security_event("登录失败", f"用户不存在 - 用户名: {username}")
             return None
         
         if not verify_password(password, user.password_hash):
-            self.logger.warning(f"认证失败 - 密码错误: {phone}")
-            log_security_event("登录失败", f"密码错误 - 用户ID: {user.id}, 手机号: {phone}", user.id)
+            self.logger.warning(f"认证失败 - 密码错误: {username}")
+            log_security_event("登录失败", f"密码错误 - 用户ID: {user.id}, 用户名: {username}", user.id)
             return None
         
-        self.logger.info(f"用户认证成功 - 用户ID: {user.id}, 手机号: {phone}")
+        self.logger.info(f"用户认证成功 - 用户ID: {user.id}, 用户名: {username}")
         log_security_event("登录成功", f"用户登录 - 用户ID: {user.id}", user.id)
         return user
 
     def is_active(self, user: User) -> bool:
         """检查用户是否活跃"""
-        is_active = user.status == "active"
-        if not is_active:
-            self.logger.warning(f"用户状态检查 - 用户ID: {user.id}, 状态: {user.status}")
-        return is_active
+        return user.status == "active"
 
     def update_password(self, db: Session, *, user: User, new_password: str) -> User:
         """更新用户密码"""
-        self.logger.info(f"开始更新用户密码 - 用户ID: {user.id}")
+        self.logger.info(f"更新用户密码 - 用户ID: {user.id}")
         
         try:
             user.password_hash = get_password_hash(new_password)
@@ -103,9 +115,8 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             db.commit()
             db.refresh(user)
             
-            # 记录安全事件
-            log_security_event("密码修改", f"用户修改密码 - 用户ID: {user.id}", user.id)
             log_database_operation("UPDATE", "users", user.id, "更新密码")
+            log_security_event("密码更新", f"用户密码更新 - 用户ID: {user.id}", user.id)
             self.logger.info(f"用户密码更新成功 - 用户ID: {user.id}")
             
             return user

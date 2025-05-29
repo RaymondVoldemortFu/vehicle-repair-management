@@ -34,5 +34,5 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
     """设置数据库连接参数"""
     if "mysql" in settings.DATABASE_URL:
         cursor = dbapi_connection.cursor()
-        cursor.execute("SET SESSION sql_mode='STRICT_TRANS_TABLES,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'")
+        cursor.execute("SET SESSION sql_mode='STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION'")
         cursor.close()

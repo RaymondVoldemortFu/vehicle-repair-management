@@ -32,21 +32,21 @@ def login_user(
     client_ip = request.client.host
     user_agent = request.headers.get("user-agent", "")
     
-    logger.info(f"用户登录尝试 - 手机号: {form_data.username}, IP: {client_ip}")
+    logger.info(f"用户登录尝试 - 用户名: {form_data.username}, IP: {client_ip}")
     
     # 验证用户凭据
     user = user_crud.authenticate(
-        db, phone=form_data.username, password=form_data.password
+        db, username=form_data.username, password=form_data.password
     )
     if not user:
-        logger.warning(f"用户登录失败 - 无效凭据, 手机号: {form_data.username}, IP: {client_ip}")
+        logger.warning(f"用户登录失败 - 无效凭据, 用户名: {form_data.username}, IP: {client_ip}")
         log_security_event(
             "登录失败", 
-            f"无效凭据 - 手机号: {form_data.username}, IP: {client_ip}, User-Agent: {user_agent}"
+            f"无效凭据 - 用户名: {form_data.username}, IP: {client_ip}, User-Agent: {user_agent}"
         )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="手机号或密码错误",
+            detail="用户名或密码错误",
         )
     
     # 检查用户状态
@@ -81,6 +81,7 @@ def login_user(
         "user_info": {
             "id": user.id,
             "name": user.name,
+            "username": user.username,
             "phone": user.phone,
             "email": user.email,
             "status": user.status

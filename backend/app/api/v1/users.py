@@ -22,28 +22,19 @@ def register_user(
     user_in: UserCreate,
 ) -> Any:
     """用户注册"""
-    # 检查手机号是否已存在
-    user = user_crud.get_by_phone(db, phone=user_in.phone)
+    # 检查用户名是否已存在
+    user = user_crud.get_by_username(db, username=user_in.username)
     if user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="该手机号已被注册"
+            detail="该用户名已被注册"
         )
-    
-    # 检查邮箱是否已存在
-    if user_in.email:
-        user = user_crud.get_by_email(db, email=user_in.email)
-        if user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="该邮箱已被注册"
-            )
     
     user = user_crud.create(db, obj_in=user_in)
     return user
 
 
-@router.get("/me", response_model=UserProfile)
+@router.get("/me", response_model=UserResponse)
 def read_user_me(
     current_user: User = Depends(get_current_active_user),
 ) -> Any:
@@ -59,22 +50,13 @@ def update_user_me(
     current_user: User = Depends(get_current_active_user),
 ) -> Any:
     """更新当前用户信息"""
-    # 检查手机号是否被其他用户使用
-    if user_in.phone and user_in.phone != current_user.phone:
-        existing_user = user_crud.get_by_phone(db, phone=user_in.phone)
+    # 检查用户名是否被其他用户使用
+    if user_in.username and user_in.username != current_user.username:
+        existing_user = user_crud.get_by_username(db, username=user_in.username)
         if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="该手机号已被其他用户使用"
-            )
-    
-    # 检查邮箱是否被其他用户使用
-    if user_in.email and user_in.email != current_user.email:
-        existing_user = user_crud.get_by_email(db, email=user_in.email)
-        if existing_user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="该邮箱已被其他用户使用"
+                detail="该用户名已被其他用户使用"
             )
     
     user = user_crud.update(db, db_obj=current_user, obj_in=user_in)
@@ -90,7 +72,7 @@ def change_password(
 ) -> Any:
     """修改密码"""
     # 验证旧密码
-    if not user_crud.authenticate(db, phone=current_user.phone, password=password_data.old_password):
+    if not user_crud.authenticate(db, username=current_user.username, password=password_data.old_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="旧密码错误"
@@ -108,14 +90,17 @@ def read_users(
     current_admin: Admin = Depends(get_current_active_admin),
 ) -> Any:
     """获取用户列表（管理员专用）"""
-    users = user_crud.get_multi(db, skip=pagination.get_offset(), limit=pagination.size)
+    users = user_crud.get_multi(
+        db, skip=pagination.skip, limit=pagination.limit
+    )
     total = user_crud.count(db)
     
-    return PaginatedResponse.create(
+    return PaginatedResponse(
         items=users,
         total=total,
         page=pagination.page,
-        size=pagination.size
+        size=pagination.size,
+        pages=(total + pagination.size - 1) // pagination.size
     )
 
 
@@ -126,13 +111,10 @@ def read_user(
     user_id: int,
     current_admin: Admin = Depends(get_current_active_admin),
 ) -> Any:
-    """获取指定用户信息（管理员专用）"""
+    """根据ID获取用户（管理员专用）"""
     user = user_crud.get(db, id=user_id)
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="用户不存在"
-        )
+        raise HTTPException(status_code=404, detail="用户不存在")
     return user
 
 
@@ -147,10 +129,16 @@ def update_user(
     """更新用户信息（管理员专用）"""
     user = user_crud.get(db, id=user_id)
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="用户不存在"
-        )
+        raise HTTPException(status_code=404, detail="用户不存在")
+    
+    # 检查用户名是否被其他用户使用
+    if user_in.username and user_in.username != user.username:
+        existing_user = user_crud.get_by_username(db, username=user_in.username)
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="该用户名已被其他用户使用"
+            )
     
     user = user_crud.update(db, db_obj=user, obj_in=user_in)
     return user
@@ -166,10 +154,8 @@ def delete_user(
     """删除用户（管理员专用）"""
     user = user_crud.get(db, id=user_id)
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="用户不存在"
-        )
+        raise HTTPException(status_code=404, detail="用户不存在")
     
     user_crud.remove(db, id=user_id)
+    return MessageResponse(message="用户删除成功")
  

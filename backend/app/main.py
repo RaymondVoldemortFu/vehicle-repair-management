@@ -9,6 +9,7 @@ from app.core.middleware import ProcessTimeMiddleware, LoggingMiddleware, Securi
 from app.core.exceptions import setup_exception_handlers
 from app.config.settings import settings
 from app.config.logging import setup_logging, get_logger
+from app.db.init_db import init_database_on_startup
 
 # 初始化日志系统
 setup_logging()
@@ -73,8 +74,28 @@ async def health_check():
 @app.on_event("startup")
 async def startup_event():
     """应用启动事件"""
-    logger.info("车辆维修管理系统启动完成")
-    logger.info(f"API文档地址: http://localhost:8000{settings.API_V1_STR}/docs")
+    logger.info("=" * 60)
+    logger.info("车辆维修管理系统启动中...")
+    logger.info("=" * 60)
+    
+    # 初始化数据库
+    logger.info("开始数据库初始化检查...")
+    try:
+        success = init_database_on_startup()
+        if success:
+            logger.info("数据库初始化检查完成")
+        else:
+            logger.error("数据库初始化失败，但应用将继续启动")
+    except Exception as e:
+        logger.error(f"数据库初始化异常: {str(e)}")
+        logger.error("应用将继续启动，但可能无法正常工作")
+        raise e
+    
+    logger.info("=" * 60)
+    logger.info("🚀 车辆维修管理系统启动完成")
+    logger.info(f"📖 API文档地址: http://localhost:8000{settings.API_V1_STR}/docs")
+    logger.info(f"🔍 健康检查: http://localhost:8000/health")
+    logger.info("=" * 60)
 
 @app.on_event("shutdown")
 async def shutdown_event():
