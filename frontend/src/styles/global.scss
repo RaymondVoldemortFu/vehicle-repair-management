@@ -1,0 +1,112 @@
+// 全局样式
+.page-container {
+  padding: 20px;
+  background-color: #f5f7fa;
+  min-height: 100vh;
+}
+
+.card-container {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.search-form {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+// 表格样式
+.el-table {
+  .el-table__row:hover > td {
+    background-color: #f5f7fa !important;
+  }
+}
+
+// 状态徽章
+.status-badge {
+  &.active {
+    color: #67c23a;
+    background-color: #f0f9ff;
+    border: 1px solid #67c23a;
+  }
+  
+  &.inactive {
+    color: #909399;
+    background-color: #f4f4f5;
+    border: 1px solid #909399;
+  }
+  
+  &.pending {
+    color: #e6a23c;
+    background-color: #fdf6ec;
+    border: 1px solid #e6a23c;
+  }
+  
+  &.completed {
+    color: #67c23a;
+    background-color: #f0f9ff;
+    border: 1px solid #67c23a;
+  }
+  
+  &.cancelled {
+    color: #f56c6c;
+    background-color: #fef0f0;
+    border: 1px solid #f56c6c;
+  }
+}
+
+// 响应式布局
+@media (max-width: 768px) {
+  .page-container {
+    padding: 10px;
+  }
+  
+  .toolbar {
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
+  
+  .search-form {
+    justify-content: flex-start;
+  }
+}
+
+// 加载状态
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+// 空状态
+.empty-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  color: #909399;
+  
+  .el-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+  }
+} 

@@ -1,16 +1,15 @@
 from datetime import timedelta
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.api import deps
 from app.core import security
-from app.config import settings
-from app.crud import user as user_crud
-from app.crud import admin as admin_crud
-from app.crud import repair_worker as repair_worker_crud
-from app.schemas.token import Token
+from app.config.settings import settings
+from app.crud.user import user_crud
+from app.crud.admin import admin_crud
+from app.crud.repair_worker import repair_worker_crud
+from app.schemas.token import Token, UserLoginRequest, AdminLoginRequest, WorkerLoginRequest
 from app.schemas.user import User
 from app.schemas.admin import Admin
 from app.schemas.repair_worker import RepairWorker
@@ -23,8 +22,8 @@ logger = get_api_logger()
 @log_api_call
 def login_user(
     request: Request,
-    db: Session = Depends(deps.get_db),
-    form_data: OAuth2PasswordRequestForm = Depends()
+    login_data: UserLoginRequest,
+    db: Session = Depends(deps.get_db)
 ) -> Any:
     """
     用户登录
@@ -32,17 +31,17 @@ def login_user(
     client_ip = request.client.host
     user_agent = request.headers.get("user-agent", "")
     
-    logger.info(f"用户登录尝试 - 用户名: {form_data.username}, IP: {client_ip}")
+    logger.info(f"用户登录尝试 - 用户名: {login_data.username}, IP: {client_ip}")
     
     # 验证用户凭据
     user = user_crud.authenticate(
-        db, username=form_data.username, password=form_data.password
+        db, username=login_data.username, password=login_data.password
     )
     if not user:
-        logger.warning(f"用户登录失败 - 无效凭据, 用户名: {form_data.username}, IP: {client_ip}")
+        logger.warning(f"用户登录失败 - 无效凭据, 用户名: {login_data.username}, IP: {client_ip}")
         log_security_event(
             "登录失败", 
-            f"无效凭据 - 用户名: {form_data.username}, IP: {client_ip}, User-Agent: {user_agent}"
+            f"无效凭据 - 用户名: {login_data.username}, IP: {client_ip}, User-Agent: {user_agent}"
         )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -92,8 +91,8 @@ def login_user(
 @log_api_call
 def login_admin(
     request: Request,
-    db: Session = Depends(deps.get_db),
-    form_data: OAuth2PasswordRequestForm = Depends()
+    login_data: AdminLoginRequest,
+    db: Session = Depends(deps.get_db)
 ) -> Any:
     """
     管理员登录
@@ -101,17 +100,17 @@ def login_admin(
     client_ip = request.client.host
     user_agent = request.headers.get("user-agent", "")
     
-    logger.info(f"管理员登录尝试 - 用户名: {form_data.username}, IP: {client_ip}")
+    logger.info(f"管理员登录尝试 - 用户名: {login_data.username}, IP: {client_ip}")
     
     # 验证管理员凭据
     admin = admin_crud.authenticate(
-        db, username=form_data.username, password=form_data.password
+        db, username=login_data.username, password=login_data.password
     )
     if not admin:
-        logger.warning(f"管理员登录失败 - 无效凭据, 用户名: {form_data.username}, IP: {client_ip}")
+        logger.warning(f"管理员登录失败 - 无效凭据, 用户名: {login_data.username}, IP: {client_ip}")
         log_security_event(
             "管理员登录失败", 
-            f"无效凭据 - 用户名: {form_data.username}, IP: {client_ip}, User-Agent: {user_agent}"
+            f"无效凭据 - 用户名: {login_data.username}, IP: {client_ip}, User-Agent: {user_agent}"
         )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -160,8 +159,8 @@ def login_admin(
 @log_api_call
 def login_worker(
     request: Request,
-    db: Session = Depends(deps.get_db),
-    form_data: OAuth2PasswordRequestForm = Depends()
+    login_data: WorkerLoginRequest,
+    db: Session = Depends(deps.get_db)
 ) -> Any:
     """
     维修工人登录
@@ -169,17 +168,17 @@ def login_worker(
     client_ip = request.client.host
     user_agent = request.headers.get("user-agent", "")
     
-    logger.info(f"维修工人登录尝试 - 工号: {form_data.username}, IP: {client_ip}")
+    logger.info(f"维修工人登录尝试 - 工号: {login_data.username}, IP: {client_ip}")
     
     # 验证工人凭据
     worker = repair_worker_crud.authenticate(
-        db, employee_id=form_data.username, password=form_data.password
+        db, employee_id=login_data.username, password=login_data.password
     )
     if not worker:
-        logger.warning(f"维修工人登录失败 - 无效凭据, 工号: {form_data.username}, IP: {client_ip}")
+        logger.warning(f"维修工人登录失败 - 无效凭据, 工号: {login_data.username}, IP: {client_ip}")
         log_security_event(
             "维修工人登录失败", 
-            f"无效凭据 - 工号: {form_data.username}, IP: {client_ip}, User-Agent: {user_agent}"
+            f"无效凭据 - 工号: {login_data.username}, IP: {client_ip}, User-Agent: {user_agent}"
         )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

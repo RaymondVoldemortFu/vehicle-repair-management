@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
 import sys
+import functools
 
 from app.config.settings import settings
 
@@ -254,6 +255,7 @@ def get_crud_logger() -> logging.Logger:
 def log_function_call(logger: logging.Logger = None):
     """函数调用日志装饰器"""
     def decorator(func):
+        @functools.wraps(func)
         def wrapper(*args, **kwargs):
             if logger is None:
                 log = get_logger()
@@ -274,6 +276,7 @@ def log_function_call(logger: logging.Logger = None):
 
 def log_api_call(func):
     """API调用日志装饰器"""
+    @functools.wraps(func)
     def wrapper(*args, **kwargs):
         api_logger = get_api_logger()
         api_logger.info(f"API调用: {func.__name__}")
