@@ -6,6 +6,12 @@ from sqlalchemy.exc import OperationalError, ProgrammingError
 import pymysql
 from app.config.database import engine, SessionLocal
 from app.models.base import Base
+# 导入所有模型以确保它们被注册到 SQLAlchemy 元数据中
+from app.models import (
+    User, Vehicle, Admin, RepairWorker, Service, Material,
+    RepairOrder, RepairOrderWorker, RepairOrderService, 
+    RepairMaterial, Feedback, Wage
+)
 from app.config.settings import settings
 from app.config.logging import get_database_logger
 
@@ -86,14 +92,14 @@ def create_tables():
     try:
         logger.info("开始检查并创建数据库表...")
         
-        # 检查是否已有表存在
-        if check_table_exists("users"):
-            logger.info("检测到已有表存在，跳过表创建")
-            return
-        
-        # 创建所有表
-        Base.metadata.create_all(bind=engine)
-        logger.info("数据库表创建完成")
+        # 检查 feedback 表是否存在
+        if not check_table_exists("feedback"):
+            logger.info("检测到 feedback 表不存在，将创建缺失的表...")
+            # 创建所有表（SQLAlchemy 会自动跳过已存在的表）
+            Base.metadata.create_all(bind=engine)
+            logger.info("数据库表创建/更新完成")
+        else:
+            logger.info("所有必要的表都已存在")
         
     except Exception as e:
         logger.error(f"创建数据库表失败: {str(e)}")

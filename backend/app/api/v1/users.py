@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from app.config.database import get_db
 from app.core.deps import get_current_active_user, get_current_active_admin
 from app.crud.user import user_crud
+from app.crud.repair_order import repair_order_crud
+from app.crud.vehicle import vehicle_crud
 from app.models.user import User
 from app.models.admin import Admin
 from app.schemas.user import (
@@ -80,6 +82,24 @@ def change_password(
     
     user_crud.update_password(db, user=current_user, new_password=password_data.new_password)
     return MessageResponse(message="密码修改成功")
+
+
+@router.get("/me/stats", response_model=dict)
+def read_user_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+) -> Any:
+    """获取当前用户统计信息"""
+    # 获取用户的订单统计
+    user_orders = repair_order_crud.get_by_user(db, user_id=current_user.id, skip=0, limit=1000)
+    completed_orders = len([order for order in user_orders if order.status == 'completed'])
+    user_vehicles = vehicle_crud.get_by_owner(db, owner_id=current_user.id)
+    
+    return {
+        "total_orders": len(user_orders),
+        "completed_orders": completed_orders,
+        "total_vehicles": len(user_vehicles)
+    }
 
 
 # 管理员专用接口

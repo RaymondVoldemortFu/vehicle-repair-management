@@ -24,6 +24,7 @@ class User(BaseModel):
     # 关系
     vehicles = relationship("Vehicle", back_populates="owner", cascade="all, delete-orphan")
     repair_orders = relationship("RepairOrder", back_populates="user", cascade="all, delete-orphan")
+    feedback = relationship("Feedback", back_populates="user", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<User(id={self.id}, name='{self.name}', username='{self.username}')>" 

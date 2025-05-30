@@ -35,7 +35,7 @@
           class="sidebar-menu"
           background-color="#001529"
           text-color="#fff"
-          active-text-color="#1890ff"
+          active-text-color="#fff"
         >
           <el-menu-item index="/worker/dashboard">
             <el-icon><HomeFilled /></el-icon>
@@ -102,6 +102,7 @@ const handleCommand = async (command) => {
 .worker-layout {
   height: 100vh;
   width: 100%;
+  overflow: hidden;
 }
 
 .header {
@@ -112,6 +113,7 @@ const handleCommand = async (command) => {
   justify-content: space-between;
   padding: 0 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
 
   .header-left {
     h2 {
@@ -147,6 +149,7 @@ const handleCommand = async (command) => {
 .sidebar {
   background: #001529;
   overflow: hidden;
+  flex-shrink: 0;
 
   .sidebar-menu {
     border: none;
@@ -159,14 +162,20 @@ const handleCommand = async (command) => {
 
       &:hover {
         background-color: #1890ff !important;
+        color: #fff !important;
       }
 
       &.is-active {
         background-color: #1890ff !important;
+        color: #fff !important;
       }
 
       .el-icon {
         margin-right: 8px;
+      }
+
+      span {
+        color: inherit;
       }
     }
   }
@@ -174,8 +183,10 @@ const handleCommand = async (command) => {
 
 .main-content {
   background: #f5f7fa;
-  padding: 0;
+  padding: 20px;
   overflow-y: auto;
+  height: calc(100vh - 60px);
+  flex: 1;
 }
 
 @media (max-width: 768px) {

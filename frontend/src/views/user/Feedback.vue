@@ -223,14 +223,14 @@ const fetchMyFeedbacks = async () => {
     myFeedbacks.value = (response || []).map(item => ({
       id: item.id,
       type: item.feedback_type,
-      title: item.comment ? item.comment.substring(0, 50) + '...' : '无标题', // 从comment生成title
+      title: item.title || '无标题', // 直接使用后端的title字段
       content: item.comment || '',
       rating: item.rating,
       status: item.status,
       created_at: item.created_at,
       order_number: item.order_id ? `订单ID: ${item.order_id}` : null,
-      reply: null, // 后端暂时没有reply字段
-      replied_at: null
+      reply: item.response || null,
+      replied_at: item.response_time || null
     }))
   } catch (error) {
     console.error('获取反馈列表失败:', error)
@@ -290,6 +290,7 @@ const handleSubmit = async () => {
     // 映射前端字段到后端期望的字段
     const submitData = {
       order_id: feedbackForm.order_id || null,
+      title: feedbackForm.title,  // 添加title字段
       rating: feedbackForm.rating,
       comment: feedbackForm.content,  // 后端期望comment字段
       feedback_type: feedbackForm.type || 'service_rating',
@@ -302,6 +303,7 @@ const handleSubmit = async () => {
     fetchMyFeedbacks()
   } catch (error) {
     console.error('提交反馈失败:', error)
+    ElMessage.error('提交反馈失败，请重试')
   } finally {
     submitting.value = false
   }
