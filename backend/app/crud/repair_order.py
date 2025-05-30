@@ -1,6 +1,6 @@
 from typing import Optional, List
 from datetime import datetime
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, func
 from app.crud.base import CRUDBase
 from app.models.repair_order import RepairOrder, OrderStatus
@@ -32,6 +32,15 @@ class CRUDRepairOrder(CRUDBase[RepairOrder, RepairOrderCreate, RepairOrderUpdate
             and_(RepairOrder.status == status, RepairOrder.is_deleted == False)
         ).offset(skip).limit(limit).all()
 
+    def get_by_status_with_details(self, db: Session, *, status: OrderStatus, skip: int = 0, limit: int = 100) -> List[RepairOrder]:
+        """根据状态获取维修订单（包含详细信息）"""
+        return db.query(RepairOrder).options(
+            joinedload(RepairOrder.vehicle),
+            joinedload(RepairOrder.user)
+        ).filter(
+            and_(RepairOrder.status == status, RepairOrder.is_deleted == False)
+        ).offset(skip).limit(limit).all()
+
     def get_pending_orders(self, db: Session, skip: int = 0, limit: int = 100) -> List[RepairOrder]:
         """获取待处理的维修订单"""
         return self.get_by_status(db, status=OrderStatus.PENDING, skip=skip, limit=limit)
@@ -40,13 +49,13 @@ class CRUDRepairOrder(CRUDBase[RepairOrder, RepairOrderCreate, RepairOrderUpdate
         """获取进行中的维修订单"""
         return self.get_by_status(db, status=OrderStatus.IN_PROGRESS, skip=skip, limit=limit)
 
-    def create_with_order_number(self, db: Session, *, obj_in: RepairOrderCreate) -> RepairOrder:
+    def create_with_order_number(self, db: Session, *, obj_in: RepairOrderCreate, user_id: int) -> RepairOrder:
         """创建维修订单并生成订单编号"""
         # 生成订单编号
         order_number = self._generate_order_number(db)
         
         db_obj = RepairOrder(
-            user_id=obj_in.user_id,
+            user_id=user_id,
             vehicle_id=obj_in.vehicle_id,
             order_number=order_number,
             description=obj_in.description,
@@ -131,6 +140,31 @@ class CRUDRepairOrder(CRUDBase[RepairOrder, RepairOrderCreate, RepairOrderUpdate
             "completed": completed,
             "cancelled": cancelled
         }
+
+    def get_with_details(self, db: Session, id: int) -> Optional[RepairOrder]:
+        """获取包含详细信息的维修订单"""
+        return db.query(RepairOrder).options(
+            joinedload(RepairOrder.vehicle),
+            joinedload(RepairOrder.user)
+        ).filter(
+            and_(RepairOrder.id == id, RepairOrder.is_deleted == False)
+        ).first()
+
+    def get_by_user_with_details(self, db: Session, *, user_id: int, skip: int = 0, limit: int = 100) -> List[RepairOrder]:
+        """获取用户的维修订单（包含车辆详情）"""
+        return db.query(RepairOrder).options(
+            joinedload(RepairOrder.vehicle),
+            joinedload(RepairOrder.user)
+        ).filter(
+            and_(RepairOrder.user_id == user_id, RepairOrder.is_deleted == False)
+        ).offset(skip).limit(limit).all()
+
+    def get_multi_with_details(self, db: Session, *, skip: int = 0, limit: int = 100) -> List[RepairOrder]:
+        """获取多个维修订单（包含详细信息）"""
+        return db.query(RepairOrder).options(
+            joinedload(RepairOrder.vehicle),
+            joinedload(RepairOrder.user)
+        ).filter(RepairOrder.is_deleted == False).offset(skip).limit(limit).all()
 
 
 repair_order_crud = CRUDRepairOrder(RepairOrder) 

@@ -29,24 +29,20 @@ def create_repair_order(
 ) -> Any:
     """创建维修订单"""
     # 验证用户只能为自己的车辆创建订单
-    if order_in.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="只能为自己的车辆创建维修订单"
-        )
+    user_id = current_user.id
     
-    order = repair_order_crud.create_with_order_number(db, obj_in=order_in)
+    order = repair_order_crud.create_with_order_number(db, obj_in=order_in, user_id=user_id)
     return order
 
 
-@router.get("/my-orders", response_model=PaginatedResponse[RepairOrderResponse])
+@router.get("/my-orders", response_model=PaginatedResponse[RepairOrderDetail])
 def read_my_repair_orders(
     db: Session = Depends(get_db),
     pagination: PaginationParams = Depends(),
     current_user: User = Depends(get_current_active_user),
 ) -> Any:
     """获取当前用户的维修订单"""
-    orders = repair_order_crud.get_by_user(
+    orders = repair_order_crud.get_by_user_with_details(
         db, user_id=current_user.id, skip=pagination.get_offset(), limit=pagination.size
     )
     
@@ -86,7 +82,7 @@ def read_repair_order(
     current_user: User = Depends(get_current_active_user),
 ) -> Any:
     """获取维修订单详情"""
-    order = repair_order_crud.get(db, id=order_id)
+    order = repair_order_crud.get_with_details(db, id=order_id)
     if not order:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -128,7 +124,7 @@ def update_order_status(
 
 
 # 管理员专用接口
-@router.get("/", response_model=PaginatedResponse[RepairOrderResponse])
+@router.get("/", response_model=PaginatedResponse[RepairOrderDetail])
 def read_repair_orders(
     db: Session = Depends(get_db),
     pagination: PaginationParams = Depends(),
@@ -137,12 +133,12 @@ def read_repair_orders(
 ) -> Any:
     """获取维修订单列表（管理员专用）"""
     if status:
-        orders = repair_order_crud.get_by_status(
+        orders = repair_order_crud.get_by_status_with_details(
             db, status=status, skip=pagination.get_offset(), limit=pagination.size
         )
         total = len(repair_order_crud.get_by_status(db, status=status, skip=0, limit=10000))
     else:
-        orders = repair_order_crud.get_multi(db, skip=pagination.get_offset(), limit=pagination.size)
+        orders = repair_order_crud.get_multi_with_details(db, skip=pagination.get_offset(), limit=pagination.size)
         total = repair_order_crud.count(db)
     
     return PaginatedResponse.create(
@@ -161,7 +157,7 @@ def read_repair_order_admin(
     current_admin: Admin = Depends(get_current_active_admin),
 ) -> Any:
     """获取维修订单详情（管理员专用）"""
-    order = repair_order_crud.get(db, id=order_id)
+    order = repair_order_crud.get_with_details(db, id=order_id)
     if not order:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

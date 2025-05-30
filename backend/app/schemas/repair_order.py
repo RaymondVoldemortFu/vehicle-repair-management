@@ -12,7 +12,7 @@ class RepairOrderBase(BaseSchema):
 
 
 class RepairOrderCreate(RepairOrderBase):
-    user_id: int = Field(..., description="用户ID")
+    # user_id: int = Field(..., description="用户ID")
     vehicle_id: int = Field(..., description="车辆ID")
     estimated_completion_time: Optional[datetime] = Field(None, description="预计完成时间")
 
@@ -24,6 +24,11 @@ class RepairOrderUpdate(BaseSchema):
     admin_id: Optional[int] = Field(None, description="管理员ID")
     estimated_completion_time: Optional[datetime] = Field(None, description="预计完成时间")
     actual_completion_time: Optional[datetime] = Field(None, description="实际完成时间")
+    internal_notes: Optional[str] = Field(None, description="内部备注")
+
+
+class RepairOrderStatusUpdate(BaseSchema):
+    status: OrderStatus = Field(..., description="订单状态")
     internal_notes: Optional[str] = Field(None, description="内部备注")
 
 
@@ -45,12 +50,28 @@ class RepairOrderResponse(BaseResponse):
     internal_notes: Optional[str]
 
 
+# 添加嵌套的用户和车辆信息
+class UserInfo(BaseSchema):
+    """用户基本信息"""
+    id: int
+    name: str
+    phone: Optional[str]
+    email: Optional[str]
+
+
+class VehicleInfo(BaseSchema):
+    """车辆基本信息"""
+    id: int
+    license_plate: str
+    vin: str
+    model: str
+    manufacturer: str
+    year: int
+    color: Optional[str]
+    mileage: Optional[int]
+
+
 class RepairOrderDetail(RepairOrderResponse):
     """包含详细信息的维修订单响应"""
-    # 这里可以添加关联的工人、服务、材料等信息
-    pass
-
-
-class RepairOrderStatusUpdate(BaseSchema):
-    status: OrderStatus = Field(..., description="订单状态")
-    internal_notes: Optional[str] = Field(None, description="内部备注") 
+    user: Optional[UserInfo] = Field(None, description="用户信息")
+    vehicle: Optional[VehicleInfo] = Field(None, description="车辆信息") 
