@@ -116,11 +116,6 @@ const routes = [
         component: () => import('@/views/admin/Analytics.vue')
       },
       {
-        path: 'logs',
-        name: 'AdminLogs',
-        component: () => import('@/views/admin/Logs.vue')
-      },
-      {
         path: 'system',
         name: 'AdminSystem',
         component: () => import('@/views/admin/System.vue')

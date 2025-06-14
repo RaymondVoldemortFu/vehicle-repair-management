@@ -57,9 +57,18 @@
           </el-menu-item>
 
           <el-menu-item index="/admin/orders">
-            <el-icon><List /></el-icon>
+            <el-icon><Tickets /></el-icon>
             <span>维修订单</span>
           </el-menu-item>
+
+          <el-sub-menu index="4">
+            <template #title>
+              <el-icon><DataAnalysis /></el-icon>
+              <span>统计报表</span>
+            </template>
+            <el-menu-item index="/admin/reports/overview">业务概览</el-menu-item>
+            <el-menu-item index="/admin/reports/financial">财务报表</el-menu-item>
+          </el-sub-menu>
 
           <el-menu-item index="/admin/workers">
             <el-icon><Avatar /></el-icon>
@@ -88,11 +97,6 @@
           <el-menu-item index="/admin/analytics">
             <el-icon><TrendCharts /></el-icon>
             <span>数据分析</span>
-          </el-menu-item>
-
-          <el-menu-item index="/admin/logs">
-            <el-icon><Document /></el-icon>
-            <span>系统日志</span>
           </el-menu-item>
         </el-menu>
       </el-aside>
