@@ -36,19 +36,12 @@
         <el-table-column prop="year" label="年份" width="80" />
         <el-table-column prop="owner_name" label="车主" width="120" />
         <el-table-column prop="mileage" label="里程(km)" width="100" />
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)">
-              {{ getStatusText(row.status) }}
-            </el-tag>
-          </template>
-        </el-table-column>
         <el-table-column prop="created_at" label="登记时间" width="150">
           <template #default="{ row }">
             {{ formatDate(row.created_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="180">
+        <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" size="small" @click="handleView(row)">
               查看
@@ -85,12 +78,7 @@
         <el-descriptions-item label="年份">{{ currentVehicle.year }}</el-descriptions-item>
         <el-descriptions-item label="颜色">{{ currentVehicle.color }}</el-descriptions-item>
         <el-descriptions-item label="里程">{{ currentVehicle.mileage }} km</el-descriptions-item>
-        <el-descriptions-item label="状态">
-          <el-tag :type="getStatusType(currentVehicle.status)">
-            {{ getStatusText(currentVehicle.status) }}
-          </el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="车主">{{ currentVehicle.owner_name }}</el-descriptions-item>
+        <el-descriptions-item label="车主">{{ currentVehicle.owner?.name }}</el-descriptions-item>
         <el-descriptions-item label="登记时间">{{ formatDate(currentVehicle.created_at) }}</el-descriptions-item>
       </el-descriptions>
       
@@ -247,7 +235,7 @@ const resetSearch = () => {
 // 查看详情
 const handleView = async (row) => {
   try {
-    const response = await request.get(`/vehicles/${row.id}`)
+    const response = await request.get(`/vehicles/admin/${row.id}`)
     currentVehicle.value = response
     detailVisible.value = true
   } catch (error) {

@@ -49,7 +49,7 @@ class OwnerInfo(BaseSchema):
     """车主基本信息"""
     id: int
     name: str
-    phone: str
+    phone: Optional[str]
     email: Optional[str]
     address: Optional[str]
 

@@ -210,7 +210,7 @@
           <el-input v-model="workerForm.certifications" type="textarea" placeholder="请输入资质证书，多项请用逗号隔开" />
         </el-form-item>
         <el-form-item v-if="!workerForm.id" label="初始密码" prop="password">
-          <el-input v-model="workerForm.password" type="password" show-password placeholder="不填写则使用默认密码" />
+          <el-input v-model="workerForm.password" type="password" show-password placeholder="请输入初始密码" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -264,7 +264,10 @@ const workerForm = reactive({ ...initialFormState })
 
 // 表单验证规则
 const workerFormRules = {
-  employee_id: [{ required: true, message: '请输入工号', trigger: 'blur' }],
+  employee_id: [
+    { required: true, message: '请输入工号', trigger: 'blur' },
+    { min: 4, message: '工号长度必须超过3位', trigger: 'blur' }
+  ],
   name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
   phone: [{ required: true, message: '请输入手机号', trigger: 'blur' }],
   email: [{ type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }],
@@ -273,6 +276,7 @@ const workerFormRules = {
   hire_date: [{ required: true, message: '请选择入职日期', trigger: 'change' }],
   hourly_rate: [{ required: true, message: '请输入时薪', trigger: 'blur' }],
   password: [
+    { required: true, message: '请输入初始密码', trigger: 'blur' },
     { min: 6, message: '密码长度至少为6位', trigger: 'blur' }
   ]
 }
