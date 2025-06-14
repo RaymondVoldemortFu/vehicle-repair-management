@@ -134,4 +134,81 @@ def get_current_super_admin(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="需要超级管理员权限"
         )
+    return current_admin
+
+
+def check_admin_permission(permission: str):
+    """检查管理员权限的依赖工厂函数"""
+    def permission_checker(
+        current_admin: Admin = Depends(get_current_active_admin),
+    ) -> Admin:
+        # 超级管理员拥有所有权限
+        if current_admin.role == AdminRole.SUPER_ADMIN:
+            return current_admin
+        
+        # 检查特定权限
+        if not admin_crud.has_permission(current_admin, permission):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"缺少必要权限: {permission}"
+            )
+        
+        return current_admin
+    
+    return permission_checker
+
+
+def get_admin_with_user_management_permission(
+    current_admin: Admin = Depends(check_admin_permission("user_management")),
+) -> Admin:
+    """获取具有用户管理权限的管理员"""
+    return current_admin
+
+
+def get_admin_with_order_management_permission(
+    current_admin: Admin = Depends(check_admin_permission("order_management")),
+) -> Admin:
+    """获取具有订单管理权限的管理员"""
+    return current_admin
+
+
+def get_admin_with_worker_management_permission(
+    current_admin: Admin = Depends(check_admin_permission("worker_management")),
+) -> Admin:
+    """获取具有工人管理权限的管理员"""
+    return current_admin
+
+
+def get_admin_with_material_management_permission(
+    current_admin: Admin = Depends(check_admin_permission("material_management")),
+) -> Admin:
+    """获取具有材料管理权限的管理员"""
+    return current_admin
+
+
+def get_admin_with_service_management_permission(
+    current_admin: Admin = Depends(check_admin_permission("service_management")),
+) -> Admin:
+    """获取具有服务管理权限的管理员"""
+    return current_admin
+
+
+def get_admin_with_analytics_permission(
+    current_admin: Admin = Depends(check_admin_permission("analytics")),
+) -> Admin:
+    """获取具有分析权限的管理员"""
+    return current_admin
+
+
+def get_admin_with_feedback_management_permission(
+    current_admin: Admin = Depends(check_admin_permission("feedback_management")),
+) -> Admin:
+    """获取具有反馈管理权限的管理员"""
+    return current_admin
+
+
+def get_admin_with_wage_management_permission(
+    current_admin: Admin = Depends(check_admin_permission("wage_management")),
+) -> Admin:
+    """获取具有工资管理权限的管理员"""
     return current_admin 

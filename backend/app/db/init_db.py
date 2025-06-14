@@ -12,8 +12,10 @@ from app.models import (
     RepairOrder, RepairOrderWorker, RepairOrderService, 
     RepairMaterial, Feedback, Wage
 )
+from app.models.admin import AdminRole, AdminStatus
 from app.config.settings import settings
 from app.config.logging import get_database_logger
+from app.core.security import get_password_hash
 
 logger = get_database_logger()
 
@@ -207,6 +209,77 @@ def update_phone_column():
         db.close()
 
 
+def create_default_super_admin():
+    """创建默认超级管理员账号"""
+    db = SessionLocal()
+    try:
+        # 检查是否已存在超级管理员
+        existing_super_admin = db.query(Admin).filter(
+            Admin.role == AdminRole.SUPER_ADMIN,
+            Admin.is_deleted == False
+        ).first()
+        
+        if existing_super_admin:
+            logger.info(f"超级管理员已存在: {existing_super_admin.username}")
+            return
+        
+        # 检查默认用户名是否已被占用
+        existing_admin = db.query(Admin).filter(
+            Admin.username == settings.DEFAULT_SUPER_ADMIN_USERNAME,
+            Admin.is_deleted == False
+        ).first()
+        
+        if existing_admin:
+            # 如果已存在同名用户但不是超级管理员，更新其角色
+            if existing_admin.role != AdminRole.SUPER_ADMIN:
+                logger.info(f"更新现有管理员 {existing_admin.username} 为超级管理员")
+                existing_admin.role = AdminRole.SUPER_ADMIN
+                existing_admin.status = AdminStatus.ACTIVE
+                db.commit()
+                db.refresh(existing_admin)
+                logger.info(f"超级管理员更新成功: {existing_admin.username}")
+            return
+        
+        # 创建新的超级管理员
+        logger.info("创建默认超级管理员账号...")
+        
+        super_admin = Admin(
+            username=settings.DEFAULT_SUPER_ADMIN_USERNAME,
+            name=settings.DEFAULT_SUPER_ADMIN_NAME,
+            email=settings.DEFAULT_SUPER_ADMIN_EMAIL,
+            password_hash=get_password_hash(settings.DEFAULT_SUPER_ADMIN_PASSWORD),
+            role=AdminRole.SUPER_ADMIN,
+            status=AdminStatus.ACTIVE,
+            permissions={
+                "system_admin": True,
+                "user_management": True,
+                "order_management": True,
+                "worker_management": True,
+                "material_management": True,
+                "service_management": True,
+                "analytics": True,
+                "feedback_management": True,
+                "wage_management": True
+            }
+        )
+        
+        db.add(super_admin)
+        db.commit()
+        db.refresh(super_admin)
+        
+        logger.info(f"默认超级管理员创建成功!")
+        logger.info(f"用户名: {settings.DEFAULT_SUPER_ADMIN_USERNAME}")
+        logger.info(f"密码: {settings.DEFAULT_SUPER_ADMIN_PASSWORD}")
+        logger.info("请在生产环境中立即更改默认密码!")
+        
+    except Exception as e:
+        logger.error(f"创建默认超级管理员失败: {str(e)}")
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
 def init_database():
     """初始化数据库"""
     logger.info("开始初始化数据库...")
@@ -223,6 +296,9 @@ def init_database():
         
         # 更新phone字段
         update_phone_column()
+        
+        # 创建默认超级管理员
+        create_default_super_admin()
         
         logger.info("数据库初始化完成")
         
@@ -247,6 +323,9 @@ def init_database_on_startup():
         
         # 更新phone字段
         update_phone_column()
+        
+        # 创建默认超级管理员
+        create_default_super_admin()
         
         logger.info("数据库检查完成")
         return True

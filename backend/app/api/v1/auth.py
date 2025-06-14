@@ -130,10 +130,13 @@ def login_admin(
             detail="账户未激活",
         )
     
+    # 更新最后登录时间
+    admin_crud.update_last_login(db, admin=admin)
+    
     # 生成访问令牌
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = security.create_access_token(
-        admin.id, expires_delta=access_token_expires, user_type="admin"
+        admin.id, expires_delta=access_token_expires    #, user_type="admin"
     )
     
     logger.info(f"管理员登录成功 - 管理员ID: {admin.id}, 用户名: {admin.username}, IP: {client_ip}")
@@ -151,7 +154,8 @@ def login_admin(
             "username": admin.username,
             "name": admin.name,
             "role": admin.role,
-            "status": admin.status
+            "status": admin.status,
+            "permissions": admin.permissions
         }
     }
 

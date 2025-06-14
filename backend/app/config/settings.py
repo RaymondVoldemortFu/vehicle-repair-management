@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     DEFAULT_PAGE_SIZE: int = 20
     MAX_PAGE_SIZE: int = 100
 
+    # 默认超级管理员配置
+    DEFAULT_SUPER_ADMIN_USERNAME: str = os.getenv("DEFAULT_SUPER_ADMIN_USERNAME", "super_admin")
+    DEFAULT_SUPER_ADMIN_PASSWORD: str = os.getenv("DEFAULT_SUPER_ADMIN_PASSWORD", "admin123456")
+    DEFAULT_SUPER_ADMIN_NAME: str = os.getenv("DEFAULT_SUPER_ADMIN_NAME", "系统超级管理员")
+    DEFAULT_SUPER_ADMIN_EMAIL: str = os.getenv("DEFAULT_SUPER_ADMIN_EMAIL", "admin@vehicle-repair.com")
+
     class Config:
         env_file = ".env"
         case_sensitive = True

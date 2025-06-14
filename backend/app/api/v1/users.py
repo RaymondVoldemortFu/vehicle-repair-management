@@ -111,16 +111,15 @@ def read_users(
 ) -> Any:
     """获取用户列表（管理员专用）"""
     users = user_crud.get_multi(
-        db, skip=pagination.skip, limit=pagination.limit
+        db, skip=pagination.get_offset(), limit=pagination.size
     )
     total = user_crud.count(db)
     
-    return PaginatedResponse(
+    return PaginatedResponse.create(
         items=users,
         total=total,
         page=pagination.page,
-        size=pagination.size,
-        pages=(total + pagination.size - 1) // pagination.size
+        size=pagination.size
     )
 
 
