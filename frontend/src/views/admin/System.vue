@@ -80,6 +80,17 @@
               </template>
             </el-table-column>
           </el-table>
+
+          <el-pagination
+            v-model:current-page="pagination.currentPage"
+            v-model:page-size="pagination.pageSize"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
+            :total="pagination.total"
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+            style="margin-top: 20px; justify-content: flex-end;"
+          />
         </div>
       </el-tab-pane>
 
@@ -266,6 +277,12 @@ const adminDialogTitle = ref('')
 const adminData = ref([])
 const adminFormRef = ref()
 
+const pagination = reactive({
+  currentPage: 1,
+  pageSize: 10,
+  total: 0
+})
+
 const adminSearch = reactive({
   keyword: ''
 })
@@ -312,8 +329,8 @@ const systemConfig = reactive({
   lockout_duration: 15,
   session_timeout: 8,
   auto_assign_orders: true,
-  work_start_time: '08:00',
-  work_end_time: '18:00',
+  work_start_time: dayjs('08:00', 'HH:mm').toDate(),
+  work_end_time: dayjs('18:00', 'HH:mm').toDate(),
   service_phone: '400-123-4567',
   service_email: 'service@example.com'
 })
@@ -338,25 +355,16 @@ const fetchAdmins = async () => {
   adminLoading.value = true
   try {
     const params = {
-      keyword: adminSearch.keyword
+      keyword: adminSearch.keyword,
+      page: pagination.currentPage,
+      size: pagination.pageSize
     }
     const response = await request.get('/system/admins', { params })
     adminData.value = response.items || []
+    pagination.total = response.total
   } catch (error) {
     console.error('获取管理员列表失败:', error)
-    // 使用模拟数据
-    adminData.value = [
-      {
-        id: 1,
-        username: 'admin',
-        name: '系统管理员',
-        email: 'admin@example.com',
-        role: 'super_admin',
-        is_active: true,
-        last_login: new Date().toISOString(),
-        created_at: new Date().toISOString()
-      }
-    ]
+    ElMessage.error(`获取管理员列表失败: ${error.message || '未知错误'}`)
   } finally {
     adminLoading.value = false
   }
@@ -370,6 +378,18 @@ const searchAdmins = () => {
 // 重置管理员搜索
 const resetAdminSearch = () => {
   adminSearch.keyword = ''
+  pagination.currentPage = 1
+  fetchAdmins()
+}
+
+// 分页处理
+const handleSizeChange = (val) => {
+  pagination.pageSize = val
+  fetchAdmins()
+}
+
+const handleCurrentChange = (val) => {
+  pagination.currentPage = val
   fetchAdmins()
 }
 
@@ -406,7 +426,7 @@ const submitAdmin = async () => {
       await request.put(`/system/admins/${adminForm.id}`, adminForm)
       ElMessage.success('更新成功')
     } else {
-      await request.post('/system/admins', adminForm)
+      await request.post(`/system/admins`, adminForm)
       ElMessage.success('添加成功')
     }
     adminDialogVisible.value = false
@@ -460,7 +480,14 @@ const handleDeleteAdmin = async (row) => {
 const fetchSystemConfig = async () => {
   try {
     const response = await request.get('/system/config')
-    Object.assign(systemConfig, response)
+    const parsedConfig = { ...response }
+    if (parsedConfig.work_start_time && typeof parsedConfig.work_start_time === 'string') {
+      parsedConfig.work_start_time = dayjs(parsedConfig.work_start_time, 'HH:mm').toDate()
+    }
+    if (parsedConfig.work_end_time && typeof parsedConfig.work_end_time === 'string') {
+      parsedConfig.work_end_time = dayjs(parsedConfig.work_end_time, 'HH:mm').toDate()
+    }
+    Object.assign(systemConfig, parsedConfig)
   } catch (error) {
     console.error('获取系统配置失败:', error)
   }
@@ -470,7 +497,15 @@ const fetchSystemConfig = async () => {
 const saveConfig = async () => {
   configLoading.value = true
   try {
-    await request.put('/system/config', systemConfig)
+    const configData = { ...systemConfig }
+    // 格式化时间，如果它们是Date对象
+    if (configData.work_start_time instanceof Date) {
+      configData.work_start_time = dayjs(configData.work_start_time).format('HH:mm')
+    }
+    if (configData.work_end_time instanceof Date) {
+      configData.work_end_time = dayjs(configData.work_end_time).format('HH:mm')
+    }
+    await request.put('/system/config', configData)
     ElMessage.success('配置保存成功')
   } catch (error) {
     console.error('保存配置失败:', error)

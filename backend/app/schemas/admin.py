@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 from typing import Optional
 from datetime import datetime
 from app.schemas.base import BaseResponse, BaseSchema
@@ -32,6 +32,12 @@ class AdminResponse(BaseResponse):
     phone: Optional[str]
     email: Optional[str]
     status: str
+    
+    @computed_field
+    @property
+    def is_active(self) -> bool:
+        """将status字段映射为is_active布尔值"""
+        return self.status == "active"
 
 
 class AdminDetail(AdminResponse):

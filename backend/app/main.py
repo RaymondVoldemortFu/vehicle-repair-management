@@ -2,10 +2,14 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
+from fastapi.openapi.docs import get_swagger_ui_html
+from starlette.middleware.cors import CORSMiddleware
 # from fastapi.templating import Jinja2Templates
 
 from app.api.v1.api import api_router
-from app.core.middleware import ProcessTimeMiddleware, LoggingMiddleware, SecurityHeadersMiddleware, RateLimitMiddleware
+from app.core.middleware import (
+    ProcessTimeMiddleware, LoggingMiddleware, SecurityHeadersMiddleware, RateLimitMiddleware
+)
 from app.core.exceptions import setup_exception_handlers
 from app.config.settings import settings
 from app.config.logging import setup_logging, get_logger
@@ -35,7 +39,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RateLimitMiddleware, max_requests=100, window_seconds=60)
 
 # 3. 日志中间件
-app.add_middleware(LoggingMiddleware)
+app.add_middleware(LoggingMiddleware, debug_mode=True)
 
 # 4. CORS中间件
 app.add_middleware(
@@ -96,6 +100,15 @@ async def startup_event():
     logger.info(f"📖 API文档地址: http://localhost:8000{settings.API_V1_STR}/docs")
     logger.info(f"🔍 健康检查: http://localhost:8000/health")
     logger.info("=" * 60)
+
+@app.middleware("http")
+async def add_csp_header(request, call_next):
+    response = await call_next(request)
+    # 允许 swagger ui 的 css 加载
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; style-src 'self' https://cdn.jsdelivr.net; script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; img-src 'self' https://fastapi.tiangolo.com data:"
+    )
+    return response
 
 @app.on_event("shutdown")
 async def shutdown_event():

@@ -8,6 +8,7 @@ from starlette.responses import Response as StarletteResponse
 import json
 
 from app.config.logging import get_access_logger, get_security_logger, log_security_event
+from app.config.settings import settings
 
 
 class ProcessTimeMiddleware(BaseHTTPMiddleware):
@@ -46,11 +47,13 @@ class ProcessTimeMiddleware(BaseHTTPMiddleware):
 class LoggingMiddleware(BaseHTTPMiddleware):
     """日志记录中间件"""
     
-    def __init__(self, app, skip_paths: list = None):
+    def __init__(self, app, skip_paths: list = None, debug_mode: bool = None):
         super().__init__(app)
         self.access_logger = get_access_logger()
         self.security_logger = get_security_logger()
         self.skip_paths = skip_paths or ["/health", "/metrics", "/favicon.ico", "/docs", "/redoc", "/openapi.json"]
+        # 使用传入的debug_mode参数，如果没有传入则使用配置文件中的设置
+        self.debug_mode = debug_mode if debug_mode is not None else settings.DEBUG_MODE
     
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         # 生成请求ID
@@ -77,27 +80,56 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             "query_params": dict(request.query_params),
             "client_ip": client_ip,
             "user_agent": user_agent,
-            "headers": dict(request.headers),
         }
         
-        # 记录请求体（仅对POST/PUT/PATCH请求，且排除敏感信息）
+        # 在调试模式下记录所有请求头
+        if self.debug_mode:
+            request_info["headers"] = dict(request.headers)
+            self.access_logger.debug(f"[DEBUG] 完整请求头: {json.dumps(dict(request.headers), ensure_ascii=False)}")
+        else:
+            # 非调试模式下只记录关键头信息
+            key_headers = {}
+            for key in ["authorization", "content-type", "accept", "user-agent", "referer"]:
+                if key in request.headers:
+                    key_headers[key] = request.headers[key]
+            request_info["headers"] = key_headers
+        
+        # 记录请求体
         if request.method in ["POST", "PUT", "PATCH"]:
             try:
                 body = await request.body()
                 if body:
-                    # 尝试解析JSON
                     try:
                         body_json = json.loads(body.decode())
-                        # 移除敏感字段
-                        sensitive_fields = ["password", "token", "secret", "key"]
-                        for field in sensitive_fields:
-                            if field in body_json:
-                                body_json[field] = "***"
-                        request_info["body"] = body_json
+                        
+                        # 在调试模式下记录完整的请求体
+                        if self.debug_mode:
+                            # 创建一个副本用于日志记录，移除敏感字段
+                            debug_body = body_json.copy()
+                            sensitive_fields = ["password", "token", "secret", "key", "api_key", "access_token", "refresh_token"]
+                            self._mask_sensitive_fields(debug_body, sensitive_fields)
+                            request_info["body"] = debug_body
+                            self.access_logger.debug(f"[DEBUG] 完整请求体: {json.dumps(debug_body, ensure_ascii=False)}")
+                        else:
+                            # 非调试模式下简化处理
+                            masked_body = body_json.copy()
+                            sensitive_fields = ["password", "token", "secret", "key", "api_key", "access_token", "refresh_token"]
+                            self._mask_sensitive_fields(masked_body, sensitive_fields)
+                            request_info["body"] = "数据已记录"
+                            
                     except (json.JSONDecodeError, UnicodeDecodeError):
-                        request_info["body"] = "非JSON数据"
-            except Exception:
-                pass
+                        if self.debug_mode:
+                            request_info["body"] = "非JSON数据"
+                            self.access_logger.debug(f"[DEBUG] 非JSON请求体: {body[:500]}...")  # 只记录前500字符
+                        else:
+                            request_info["body"] = "非JSON数据"
+            except Exception as e:
+                if self.debug_mode:
+                    self.access_logger.debug(f"[DEBUG] 读取请求体失败: {str(e)}")
+        
+        # 记录请求开始日志
+        if self.debug_mode:
+            self.access_logger.debug(f"[DEBUG] 请求开始: {json.dumps(request_info, ensure_ascii=False)}")
         
         self.access_logger.info(f"请求开始: {json.dumps(request_info, ensure_ascii=False)}")
         
@@ -105,8 +137,38 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         self.detect_suspicious_activity(request, client_ip, user_agent)
         
         # 处理请求
+        response_body = None
         try:
             response = await call_next(request)
+            
+            # 在调试模式下记录响应体
+            if self.debug_mode and response.status_code < 400:
+                try:
+                    # 获取响应体内容
+                    response_body = b""
+                    async for chunk in response.body_iterator:
+                        response_body += chunk
+                    
+                    # 重新创建响应对象
+                    from starlette.responses import Response as StarletteResponse
+                    response = StarletteResponse(
+                        content=response_body,
+                        status_code=response.status_code,
+                        headers=response.headers,
+                        media_type=response.media_type
+                    )
+                    
+                    # 记录响应体（如果是JSON格式）
+                    if response_body and response.headers.get("content-type", "").startswith("application/json"):
+                        try:
+                            response_json = json.loads(response_body.decode())
+                            self.access_logger.debug(f"[DEBUG] 响应体: {json.dumps(response_json, ensure_ascii=False)}")
+                        except (json.JSONDecodeError, UnicodeDecodeError):
+                            self.access_logger.debug(f"[DEBUG] 非JSON响应: {response_body[:500]}...")
+                            
+                except Exception as e:
+                    self.access_logger.debug(f"[DEBUG] 读取响应体失败: {str(e)}")
+                    
         except Exception as e:
             # 记录异常
             process_time = time.time() - start_time
@@ -117,6 +179,9 @@ class LoggingMiddleware(BaseHTTPMiddleware):
                 "status": "error"
             }
             self.access_logger.error(f"请求异常: {json.dumps(error_info, ensure_ascii=False)}")
+            
+            if self.debug_mode:
+                self.access_logger.debug(f"[DEBUG] 异常详情: {repr(e)}")
             raise
         
         # 计算处理时间
@@ -130,6 +195,11 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             "response_size": response.headers.get("content-length", "unknown")
         }
         
+        # 在调试模式下记录响应头
+        if self.debug_mode:
+            response_info["response_headers"] = dict(response.headers)
+            self.access_logger.debug(f"[DEBUG] 响应头: {json.dumps(dict(response.headers), ensure_ascii=False)}")
+        
         # 根据状态码选择日志级别
         if response.status_code >= 500:
             self.access_logger.error(f"请求完成(服务器错误): {json.dumps(response_info, ensure_ascii=False)}")
@@ -142,11 +212,28 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         if process_time > 2.0:  # 超过2秒的请求
             self.access_logger.warning(f"慢请求警告: {request.method} {request.url.path} - 耗时: {process_time:.4f}秒")
         
+        # 在调试模式下记录额外的性能信息
+        if self.debug_mode:
+            self.access_logger.debug(f"[DEBUG] 性能统计: 请求处理时间: {process_time:.4f}秒, 状态码: {response.status_code}")
+        
         # 添加响应头
         response.headers["X-Request-ID"] = request_id
         response.headers["X-Process-Time"] = str(round(process_time, 4))
         
         return response
+    
+    def _mask_sensitive_fields(self, data, sensitive_fields):
+        """递归地屏蔽敏感字段"""
+        if isinstance(data, dict):
+            for key, value in data.items():
+                if any(field in key.lower() for field in sensitive_fields):
+                    data[key] = "***已屏蔽***"
+                elif isinstance(value, (dict, list)):
+                    self._mask_sensitive_fields(value, sensitive_fields)
+        elif isinstance(data, list):
+            for item in data:
+                if isinstance(item, (dict, list)):
+                    self._mask_sensitive_fields(item, sensitive_fields)
     
     def get_client_ip(self, request: Request) -> str:
         """获取客户端真实IP"""

@@ -113,7 +113,10 @@ const fetchData = async () => {
     const params = {
       page: pagination.page,
       size: pagination.size,
-      ...searchForm
+      keyword: searchForm.keyword
+    }
+    if (searchForm.status) {
+      params.status = searchForm.status
     }
     const response = await request.get('/repair-orders/', { params })
     tableData.value = response.items || []
