@@ -1,17 +1,20 @@
-from typing import Any, List
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Any, List, Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from app.config.database import get_db
 from app.core.deps import get_current_active_admin, get_current_active_worker
 from app.crud.repair_worker import repair_worker_crud
+from app.crud.wage import wage_crud
 from app.models.admin import Admin
 from app.models.repair_worker import RepairWorker, SkillType
 from app.schemas.repair_worker import (
     RepairWorkerCreate, RepairWorkerUpdate, RepairWorkerResponse, 
-    RepairWorkerDetail, RepairWorkerPasswordUpdate
+    RepairWorkerDetail, RepairWorkerPasswordUpdate, RepairWorker as RepairWorkerSchema
 )
 from app.schemas.base import MessageResponse, PaginationParams, PaginatedResponse
+from app.schemas.wage import Wage
+from app import schemas
 
 router = APIRouter()
 
@@ -76,7 +79,7 @@ def read_current_worker_info(
     current_worker: RepairWorker = Depends(get_current_active_worker),
 ) -> Any:
     """获取当前维修工人信息"""
-    return current_worker
+    return RepairWorkerSchema.from_orm(current_worker)
 
 
 @router.put("/me", response_model=RepairWorkerResponse)
@@ -92,7 +95,7 @@ def update_current_worker_info(
     update_data = {k: v for k, v in worker_in.dict(exclude_unset=True).items() if k in allowed_fields}
     
     worker = repair_worker_crud.update(db, db_obj=current_worker, obj_in=update_data)
-    return worker
+    return RepairWorkerSchema.from_orm(worker)
 
 
 @router.put("/me/password", response_model=MessageResponse)
@@ -117,6 +120,26 @@ def change_worker_password(
     return MessageResponse(message="密码修改成功")
 
 
+@router.get("/my-wages", response_model=List[Wage])
+def read_my_wages(
+    *,
+    db: Session = Depends(get_db),
+    current_worker: RepairWorker = Depends(get_current_active_worker),
+    start_date: Optional[str] = Query(None, description="开始月份 (YYYY-MM)", regex=r"^\d{4}-\d{2}$"),
+    end_date: Optional[str] = Query(None, description="结束月份 (YYYY-MM)", regex=r"^\d{4}-\d{2}$"),
+) -> Any:
+    """
+    获取当前登录工人的工资记录
+    """
+    wages = wage_crud.get_by_worker(
+        db,
+        worker_id=current_worker.id,
+        start_date=start_date,
+        end_date=end_date
+    )
+    return wages
+
+
 @router.get("/search/employee-id/{employee_id}", response_model=RepairWorkerResponse)
 def search_worker_by_employee_id(
     *,
@@ -132,7 +155,7 @@ def search_worker_by_employee_id(
             detail="未找到该工号的维修工人"
         )
     
-    return worker
+    return RepairWorkerSchema.from_orm(worker)
 
 
 @router.get("/statistics/overview", response_model=dict)
@@ -172,7 +195,7 @@ def read_repair_worker(
             detail="维修工人不存在"
         )
     
-    return worker
+    return RepairWorkerSchema.from_orm(worker)
 
 
 @router.put("/{worker_id}", response_model=RepairWorkerResponse)
@@ -201,7 +224,7 @@ def update_repair_worker(
             )
     
     worker = repair_worker_crud.update(db, db_obj=worker, obj_in=worker_in)
-    return worker
+    return RepairWorkerSchema.from_orm(worker)
 
 
 @router.delete("/{worker_id}", response_model=MessageResponse)

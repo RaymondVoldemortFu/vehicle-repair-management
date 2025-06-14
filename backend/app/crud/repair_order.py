@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, func
 from app.crud.base import CRUDBase
 from app.models.repair_order import RepairOrder, OrderStatus
+from app.models.repair_worker import RepairWorker
+from app.models.repair_order_worker import RepairOrderWorker
 from app.schemas.repair_order import RepairOrderCreate, RepairOrderUpdate
 
 
@@ -159,12 +161,99 @@ class CRUDRepairOrder(CRUDBase[RepairOrder, RepairOrderCreate, RepairOrderUpdate
             and_(RepairOrder.user_id == user_id, RepairOrder.is_deleted == False)
         ).offset(skip).limit(limit).all()
 
+    def get_by_worker_with_details(self, db: Session, *, worker_id: int, skip: int = 0, limit: int = 100) -> (List[RepairOrder], int):
+        """获取分配给维修工人的维修订单（包含详细信息）"""
+        query = db.query(RepairOrder).join(
+            RepairOrder.assigned_workers
+        ).filter(
+            RepairWorker.id == worker_id,
+            RepairOrder.is_deleted == False
+        )
+        total = query.count()
+        orders = query.options(
+            joinedload(RepairOrder.vehicle),
+            joinedload(RepairOrder.user)
+        ).offset(skip).limit(limit).all()
+        return orders, total
+
+    def count_by_status(self, db: Session, *, status: OrderStatus) -> int:
+        """根据状态计算订单数量"""
+        return db.query(RepairOrder).filter(
+            and_(
+                RepairOrder.status == status,
+                RepairOrder.is_deleted == False
+            )
+        ).count()
+
     def get_multi_with_details(self, db: Session, *, skip: int = 0, limit: int = 100) -> List[RepairOrder]:
         """获取多个维修订单（包含详细信息）"""
         return db.query(RepairOrder).options(
             joinedload(RepairOrder.vehicle),
             joinedload(RepairOrder.user)
         ).filter(RepairOrder.is_deleted == False).offset(skip).limit(limit).all()
+
+    def accept_order(self, db: Session, *, order_id: int, worker_id: int) -> Optional[RepairOrder]:
+        """维修工接受订单"""
+        order = self.get(db, id=order_id)
+        if not order:
+            raise ValueError("订单不存在")
+
+        if order.status != OrderStatus.PENDING:
+            raise ValueError("订单无法被接受，可能已被处理")
+
+        worker = db.query(RepairWorker).filter(RepairWorker.id == worker_id).first()
+        if not worker:
+            raise ValueError("维修工不存在")
+
+        # 创建关联对象，并填入额外数据
+        assignment = RepairOrderWorker(
+            order_id=order.id,
+            worker_id=worker.id,
+            hourly_rate=worker.hourly_rate  # 记录当前的小时费率
+        )
+        db.add(assignment)
+
+        order.status = OrderStatus.IN_PROGRESS
+
+        db.add(order)
+        db.commit()
+        db.refresh(order)
+        return order
+
+    def reject_order(self, db: Session, *, order_id: int, worker_id: int) -> Optional[RepairOrder]:
+        """维修工拒绝/退回订单"""
+        # 查找特定的分配记录
+        assignment = db.query(RepairOrderWorker).filter(
+            RepairOrderWorker.order_id == order_id,
+            RepairOrderWorker.worker_id == worker_id
+        ).first()
+
+        if not assignment:
+            raise ValueError("该维修工未被分配此订单")
+
+        # 获取订单
+        order = self.get(db, id=order_id)
+        if not order:
+            # 如果存在分配记录，这不应该发生
+            raise ValueError("订单不存在")
+
+        # 删除分配记录
+        db.delete(assignment)
+        db.flush()  # 先执行删除，以便后续查询能看到变化
+
+        # 检查是否还有其他工人被分配
+        remaining_assignments = db.query(RepairOrderWorker).filter(
+            RepairOrderWorker.order_id == order_id
+        ).count()
+
+        # 如果没有工人了，将状态设置回 PENDING
+        if remaining_assignments == 0:
+            order.status = OrderStatus.PENDING
+            db.add(order)
+
+        db.commit()
+        db.refresh(order)
+        return order
 
 
 repair_order_crud = CRUDRepairOrder(RepairOrder) 

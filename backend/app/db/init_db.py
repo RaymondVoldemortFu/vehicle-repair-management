@@ -93,16 +93,9 @@ def create_tables():
     """创建所有表"""
     try:
         logger.info("开始检查并创建数据库表...")
-        
-        # 检查 feedback 表是否存在
-        if not check_table_exists("feedback"):
-            logger.info("检测到 feedback 表不存在，将创建缺失的表...")
-            # 创建所有表（SQLAlchemy 会自动跳过已存在的表）
-            Base.metadata.create_all(bind=engine)
-            logger.info("数据库表创建/更新完成")
-        else:
-            logger.info("所有必要的表都已存在")
-        
+        # SQLAlchemy 的 create_all 会自动跳过已存在的表，所以可以直接调用
+        Base.metadata.create_all(bind=engine)
+        logger.info("数据库表创建/更新完成")
     except Exception as e:
         logger.error(f"创建数据库表失败: {str(e)}")
         raise
@@ -209,6 +202,33 @@ def update_phone_column():
         db.close()
 
 
+def add_missing_repair_order_columns():
+    """为 repair_orders 表添加缺失的字段"""
+    if not check_table_exists("repair_orders"):
+        logger.info("repair_orders 表不存在，跳过字段添加")
+        return
+
+    db = SessionLocal()
+    try:
+        if not check_column_exists("repair_orders", "comment"):
+            logger.info("正在为 repair_orders 表添加 comment 字段...")
+            db.execute(text("ALTER TABLE repair_orders ADD COLUMN comment VARCHAR(500) AFTER internal_notes"))
+            db.commit()
+            logger.info("comment 字段添加成功")
+
+        if not check_column_exists("repair_orders", "status_history"):
+            logger.info("正在为 repair_orders 表添加 status_history 字段...")
+            db.execute(text("ALTER TABLE repair_orders ADD COLUMN status_history VARCHAR(1000) AFTER comment"))
+            db.commit()
+            logger.info("status_history 字段添加成功")
+            
+    except Exception as e:
+        logger.error(f"为 repair_orders 添加字段失败: {str(e)}")
+        db.rollback()
+    finally:
+        db.close()
+
+
 def create_default_super_admin():
     """创建默认超级管理员账号"""
     db = SessionLocal()
@@ -291,11 +311,10 @@ def init_database():
         # 创建表
         create_tables()
         
-        # 添加username字段
+        # 添加/更新字段
         add_username_column()
-        
-        # 更新phone字段
         update_phone_column()
+        add_missing_repair_order_columns()
         
         # 创建默认超级管理员
         create_default_super_admin()
@@ -318,11 +337,10 @@ def init_database_on_startup():
         # 创建表
         create_tables()
         
-        # 添加username字段
+        # 添加/更新字段
         add_username_column()
-        
-        # 更新phone字段
         update_phone_column()
+        add_missing_repair_order_columns()
         
         # 创建默认超级管理员
         create_default_super_admin()

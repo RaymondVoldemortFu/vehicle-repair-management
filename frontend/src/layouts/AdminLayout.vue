@@ -61,15 +61,6 @@
             <span>维修订单</span>
           </el-menu-item>
 
-          <el-sub-menu index="4">
-            <template #title>
-              <el-icon><DataAnalysis /></el-icon>
-              <span>统计报表</span>
-            </template>
-            <el-menu-item index="/admin/reports/overview">业务概览</el-menu-item>
-            <el-menu-item index="/admin/reports/financial">财务报表</el-menu-item>
-          </el-sub-menu>
-
           <el-menu-item index="/admin/workers">
             <el-icon><Avatar /></el-icon>
             <span>维修工人</span>

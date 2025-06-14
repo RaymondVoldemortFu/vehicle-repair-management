@@ -57,21 +57,103 @@ def read_my_repair_orders(
     )
 
 
-@router.get("/worker-orders", response_model=PaginatedResponse[RepairOrderResponse])
+@router.get("/worker-orders", response_model=PaginatedResponse[RepairOrderDetail])
 def read_worker_orders(
     db: Session = Depends(get_db),
     pagination: PaginationParams = Depends(),
     current_worker: RepairWorker = Depends(get_current_active_worker),
 ) -> Any:
     """获取维修工人的订单（通过关联表）"""
-    # 这里需要通过RepairOrderWorker表来查询
-    # 暂时返回空列表，具体实现需要创建相应的CRUD方法
+    orders, total = repair_order_crud.get_by_worker_with_details(
+        db, worker_id=current_worker.id, skip=pagination.get_offset(), limit=pagination.size
+    )
+    
     return PaginatedResponse.create(
-        items=[],
-        total=0,
+        items=orders,
+        total=total,
         page=pagination.page,
         size=pagination.size
     )
+
+
+@router.get("/available", response_model=PaginatedResponse[RepairOrderDetail])
+def read_available_orders(
+    db: Session = Depends(get_db),
+    pagination: PaginationParams = Depends(),
+    current_worker: RepairWorker = Depends(get_current_active_worker),
+) -> Any:
+    """获取可接取的订单列表（状态为待处理）"""
+    orders = repair_order_crud.get_by_status_with_details(
+        db, status=OrderStatus.PENDING, skip=pagination.get_offset(), limit=pagination.size
+    )
+    total = repair_order_crud.count_by_status(db, status=OrderStatus.PENDING)
+
+    return PaginatedResponse.create(
+        items=orders,
+        total=total,
+        page=pagination.page,
+        size=pagination.size,
+    )
+
+
+@router.get("/statistics/overview", response_model=dict)
+def get_order_statistics(
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_active_admin),
+) -> Any:
+    """获取订单统计信息（管理员专用）"""
+    stats = repair_order_crud.get_statistics(db)
+    return stats
+
+
+@router.put("/worker-orders/{order_id}/status", response_model=RepairOrderResponse)
+def update_order_status_worker(
+    *,
+    db: Session = Depends(get_db),
+    order_id: int,
+    status_update: RepairOrderStatusUpdate,
+    current_worker: RepairWorker = Depends(get_current_active_worker),
+) -> Any:
+    """更新订单状态（维修工专用）"""
+    # 验证订单是否分配给当前工人
+    order = repair_order_crud.get(db, id=order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="订单不存在")
+
+    is_assigned = any(worker.id == current_worker.id for worker in order.assigned_workers)
+    if not is_assigned:
+        raise HTTPException(status_code=403, detail="无权操作此订单")
+
+    order = repair_order_crud.update_status(
+        db, 
+        order_id=order_id, 
+        status=status_update.status, 
+        notes=status_update.internal_notes
+    )
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="维修订单不存在"
+        )
+    return order
+
+
+@router.post("/{order_id}/accept", response_model=RepairOrderResponse)
+def accept_order(
+    *,
+    db: Session = Depends(get_db),
+    order_id: int,
+    current_worker: RepairWorker = Depends(get_current_active_worker),
+) -> Any:
+    """维修工接受订单"""
+    try:
+        order = repair_order_crud.accept_order(db, order_id=order_id, worker_id=current_worker.id)
+        return order
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
 
 
 @router.get("/{order_id}", response_model=RepairOrderDetail)
@@ -121,6 +203,25 @@ def update_order_status(
         )
     
     return order
+
+
+@router.put("/{order_id}/reject", response_model=RepairOrderResponse)
+def reject_repair_order(
+    *,
+    db: Session = Depends(get_db),
+    order_id: int,
+    current_worker: RepairWorker = Depends(get_current_active_worker),
+) -> Any:
+    """
+    工人拒绝维修订单
+    """
+    try:
+        order = repair_order_crud.reject_order(db=db, order_id=order_id, worker_id=current_worker.id)
+        if not order:
+            raise HTTPException(status_code=404, detail="未找到订单或无法拒绝")
+        return order
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # 管理员专用接口
@@ -202,15 +303,5 @@ def delete_repair_order(
             detail="维修订单不存在"
         )
     
-    repair_order_crud.remove(db, id=order_id)
-    return MessageResponse(message="维修订单删除成功")
-
-
-@router.get("/statistics/overview", response_model=dict)
-def get_order_statistics(
-    db: Session = Depends(get_db),
-    current_admin: Admin = Depends(get_current_active_admin),
-) -> Any:
-    """获取订单统计信息（管理员专用）"""
-    stats = repair_order_crud.get_statistics(db)
-    return stats 
+    order = repair_order_crud.remove(db, id=order_id)
+    return MessageResponse(message="维修订单删除成功") 
