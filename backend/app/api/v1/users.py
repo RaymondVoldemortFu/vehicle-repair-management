@@ -177,4 +177,22 @@ def delete_user(
     
     user_crud.remove(db, id=user_id)
     return MessageResponse(message="用户删除成功")
+
+
+@router.put("/{user_id}/toggle-status", response_model=MessageResponse)
+def toggle_user_status(
+    *,
+    db: Session = Depends(get_db),
+    user_id: int,
+    current_admin: Admin = Depends(get_current_active_admin),
+) -> Any:
+    """切换用户状态（激活/禁用）（管理员专用）"""
+    user = user_crud.get(db, id=user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+
+    new_status = "inactive" if user.status == "active" else "active"
+    user_crud.update(db, db_obj=user, obj_in={"status": new_status})
+    
+    return MessageResponse(message=f"用户状态已更新为: {new_status}")
  

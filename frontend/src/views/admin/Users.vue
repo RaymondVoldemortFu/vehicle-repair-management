@@ -38,10 +38,10 @@
         <el-table-column prop="name" label="姓名" width="120" />
         <el-table-column prop="phone" label="手机号" width="150" />
         <el-table-column prop="email" label="邮箱" show-overflow-tooltip />
-        <el-table-column prop="is_active" label="状态" width="100">
+        <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.is_active ? 'success' : 'danger'">
-              {{ row.is_active ? '激活' : '禁用' }}
+            <el-tag :type="row.status === 'active' ? 'success' : 'danger'">
+              {{ row.status === 'active' ? '激活' : '禁用' }}
             </el-tag>
           </template>
         </el-table-column>
@@ -55,12 +55,12 @@
             <el-button type="primary" size="small" @click="handleEdit(row)">
               编辑
             </el-button>
-            <el-button 
-              :type="row.is_active ? 'danger' : 'success'" 
-              size="small" 
+            <el-button
+              :type="row.status === 'active' ? 'danger' : 'success'"
+              size="small"
               @click="handleToggleStatus(row)"
             >
-              {{ row.is_active ? '禁用' : '激活' }}
+              {{ row.status === 'active' ? '禁用' : '激活' }}
             </el-button>
             <el-button type="danger" size="small" @click="handleDelete(row)">
               删除
@@ -102,8 +102,14 @@
         <el-form-item v-if="!form.id" label="密码" prop="password">
           <el-input v-model="form.password" type="password" placeholder="请输入密码" />
         </el-form-item>
-        <el-form-item label="状态" prop="is_active">
-          <el-switch v-model="form.is_active" active-text="激活" inactive-text="禁用" />
+        <el-form-item label="状态" prop="status">
+          <el-switch
+            v-model="form.status"
+            active-value="active"
+            inactive-value="inactive"
+            active-text="激活"
+            inactive-text="禁用"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -147,7 +153,7 @@ const form = reactive({
   email: '',
   address: '',
   password: '',
-  is_active: true
+  status: 'active'
 })
 
 const formRef = ref()
@@ -212,7 +218,7 @@ const handleAdd = () => {
     email: '',
     address: '',
     password: '',
-    is_active: true
+    status: 'active'
   })
   dialogVisible.value = true
 }
@@ -249,15 +255,15 @@ const handleSubmit = async () => {
 
 // 切换状态
 const handleToggleStatus = async (row) => {
+  const action = row.status === 'active' ? '禁用' : '激活'
   try {
-    await ElMessageBox.confirm(
-      `确定要${row.is_active ? '禁用' : '激活'}用户 ${row.name} 吗？`,
-      '提示',
-      { type: 'warning' }
-    )
-    
+    await ElMessageBox.confirm(`确定要${action}用户 "${row.username}" 吗?`, '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
     await request.put(`/users/${row.id}/toggle-status`)
-    ElMessage.success('操作成功')
+    ElMessage.success(`${action}成功`)
     fetchData()
   } catch (error) {
     if (error !== 'cancel') {

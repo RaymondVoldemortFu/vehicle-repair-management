@@ -62,7 +62,7 @@ def read_vehicle(
         )
     
     # 验证用户只能查看自己的车辆
-    if vehicle.owner_id != current_user.id:
+    if vehicle.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="无权查看此车辆"

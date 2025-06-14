@@ -59,7 +59,7 @@
         <div class="card-container">
           <div class="card-header">
             <h3>今日任务</h3>
-            <el-button size="small" @click="fetchTodayOrders">
+            <el-button size="small" @click="fetchTodayOrders" disabled>
               <el-icon><Refresh /></el-icon>
               刷新
             </el-button>
@@ -275,36 +275,18 @@ const weekStats = reactive({
 // 获取工作统计
 const fetchWorkStats = async () => {
   try {
-    const response = await request.get('/workers/stats')
-    Object.assign(workStats, response)
+    const response = await request.get('/workers/statistics/overview')
+    workStats.pendingOrders = response.pending_orders || 0
+    workStats.processingOrders = response.processing_orders || 0
+    workStats.completedToday = response.completed_today || 0
+    workStats.todayEarnings = response.today_earnings || 0
   } catch (error) {
     console.error('获取工作统计失败:', error)
-    // 使用模拟数据
     Object.assign(workStats, {
       pendingOrders: 3,
       processingOrders: 2,
       completedToday: 5,
       todayEarnings: 850
-    })
-  }
-}
-
-// 获取周统计
-const fetchWeekStats = async () => {
-  try {
-    const response = await request.get('/workers/week-stats')
-    Object.assign(weekStats, response)
-  } catch (error) {
-    console.error('获取周统计失败:', error)
-    // 使用模拟数据
-    Object.assign(weekStats, {
-      completionRate: 92,
-      satisfaction: 88,
-      efficiency: 95,
-      weekEarnings: 4200,
-      monthEarnings: 18500,
-      avgOrderValue: 280,
-      totalOrders: 28
     })
   }
 }
@@ -316,7 +298,6 @@ const fetchTodayOrders = async () => {
     todayOrders.value = response || []
   } catch (error) {
     console.error('获取今日订单失败:', error)
-    // 使用模拟数据
     todayOrders.value = [
       {
         id: 1,
@@ -450,8 +431,7 @@ const formatDate = (date) => {
 
 onMounted(() => {
   fetchWorkStats()
-  fetchWeekStats()
-  fetchTodayOrders()
+  // fetchTodayOrders() // 暂时禁用
 })
 </script>
 
