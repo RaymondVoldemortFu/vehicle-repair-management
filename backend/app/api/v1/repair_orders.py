@@ -13,7 +13,7 @@ from app.models.repair_worker import RepairWorker
 from app.models.repair_order import OrderStatus
 from app.schemas.repair_order import (
     RepairOrderCreate, RepairOrderUpdate, RepairOrderResponse, 
-    RepairOrderDetail, RepairOrderStatusUpdate
+    RepairOrderDetail, RepairOrderStatusUpdate, WorkCompletionUpdate
 )
 from app.schemas.base import MessageResponse, PaginationParams, PaginatedResponse
 
@@ -136,6 +136,29 @@ def update_order_status_worker(
             detail="维修订单不存在"
         )
     return order
+
+
+@router.post("/worker-orders/{order_id}/complete", response_model=RepairOrderResponse)
+def complete_order_with_log(
+    *,
+    db: Session = Depends(get_db),
+    order_id: int,
+    work_log: WorkCompletionUpdate,
+    current_worker: RepairWorker = Depends(get_current_active_worker),
+) -> Any:
+    """
+    工人完成订单并提交工时记录
+    """
+    try:
+        order = repair_order_crud.complete_order_and_log_work(
+            db=db, order_id=order_id, worker_id=current_worker.id, work_log=work_log
+        )
+        return order
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
 
 
 @router.post("/{order_id}/accept", response_model=RepairOrderResponse)

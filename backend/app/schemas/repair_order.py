@@ -1,9 +1,11 @@
-from pydantic import Field
+from pydantic import Field, BaseModel
 from typing import Optional, List
 from datetime import datetime
 from decimal import Decimal
-from app.schemas.base import BaseResponse, BaseSchema
+from app.schemas.base import BaseResponse, BaseSchema, PaginationParams
 from app.models.repair_order import OrderStatus, OrderPriority
+from pydantic import model_validator
+from app.schemas.user import UserResponse as UserInfo
 
 
 class RepairOrderBase(BaseSchema):
@@ -27,9 +29,21 @@ class RepairOrderUpdate(BaseSchema):
     internal_notes: Optional[str] = Field(None, description="内部备注")
 
 
-class RepairOrderStatusUpdate(BaseSchema):
-    status: OrderStatus = Field(..., description="订单状态")
-    internal_notes: Optional[str] = Field(None, description="内部备注")
+class RepairOrderStatusUpdate(BaseModel):
+    status: OrderStatus
+    internal_notes: Optional[str] = None
+
+
+class WorkCompletionUpdate(BaseModel):
+    work_hours: float = Field(..., gt=0, description="总工作小时数")
+    overtime_hours: float = Field(0, ge=0, description="加班小时数")
+    work_description: Optional[str] = Field(None, max_length=500, description="工作内容描述")
+
+    @model_validator(mode='after')
+    def check_hours(self):
+        if self.overtime_hours > self.work_hours:
+            raise ValueError('加班时长不能超过总时长')
+        return self
 
 
 class RepairOrderResponse(BaseResponse):
@@ -51,14 +65,6 @@ class RepairOrderResponse(BaseResponse):
 
 
 # 添加嵌套的用户和车辆信息
-class UserInfo(BaseSchema):
-    """用户基本信息"""
-    id: int
-    name: str
-    phone: Optional[str]
-    email: Optional[str]
-
-
 class VehicleInfo(BaseSchema):
     """车辆基本信息"""
     id: int
@@ -74,4 +80,9 @@ class VehicleInfo(BaseSchema):
 class RepairOrderDetail(RepairOrderResponse):
     """包含详细信息的维修订单响应"""
     user: Optional[UserInfo] = Field(None, description="用户信息")
-    vehicle: Optional[VehicleInfo] = Field(None, description="车辆信息") 
+    vehicle: Optional[VehicleInfo] = Field(None, description="车辆信息")
+
+
+class RepairOrderWithDetails(RepairOrderResponse):
+    user: Optional[UserInfo] = None
+    vehicle: Optional[VehicleInfo] = None 

@@ -1,12 +1,17 @@
 from typing import Optional, List
 from datetime import datetime
+from decimal import Decimal
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, func
 from app.crud.base import CRUDBase
 from app.models.repair_order import RepairOrder, OrderStatus
 from app.models.repair_worker import RepairWorker
 from app.models.repair_order_worker import RepairOrderWorker
-from app.schemas.repair_order import RepairOrderCreate, RepairOrderUpdate
+from app.models.wage import Wage
+from app.schemas.repair_order import RepairOrderCreate, RepairOrderUpdate, WorkCompletionUpdate
+
+# 加班费率
+OVERTIME_RATE_MULTIPLIER = Decimal("1.5")
 
 
 class CRUDRepairOrder(CRUDBase[RepairOrder, RepairOrderCreate, RepairOrderUpdate]):
@@ -251,6 +256,79 @@ class CRUDRepairOrder(CRUDBase[RepairOrder, RepairOrderCreate, RepairOrderUpdate
             order.status = OrderStatus.PENDING
             db.add(order)
 
+        db.commit()
+        db.refresh(order)
+        return order
+
+    def complete_order_and_log_work(
+        self, db: Session, *, order_id: int, worker_id: int, work_log: WorkCompletionUpdate
+    ) -> Optional[RepairOrder]:
+        """
+        完成订单，记录工时，并计算更新工资
+        """
+        # 1. 验证订单和分配记录
+        assignment = db.query(RepairOrderWorker).filter(
+            RepairOrderWorker.order_id == order_id,
+            RepairOrderWorker.worker_id == worker_id
+        ).first()
+
+        if not assignment:
+            raise ValueError("该维修工未被分配此订单")
+
+        order = self.get(db, id=order_id)
+        if not order:
+            raise ValueError("订单不存在")
+        if order.status != OrderStatus.IN_PROGRESS:
+            raise ValueError("订单当前状态无法完成")
+
+        worker = db.query(RepairWorker).filter(RepairWorker.id == worker_id).first()
+        if not worker:
+            raise ValueError("维修工不存在")
+
+        # 2. 计算本次工作收入
+        regular_hours = Decimal(str(work_log.work_hours)) - Decimal(str(work_log.overtime_hours))
+        
+        regular_pay = regular_hours * worker.hourly_rate
+        overtime_pay = Decimal(str(work_log.overtime_hours)) * worker.hourly_rate * OVERTIME_RATE_MULTIPLIER
+        total_payment_for_assignment = regular_pay + overtime_pay
+
+        # 3. 更新分配记录(repair_order_workers)
+        assignment.work_hours = Decimal(str(work_log.work_hours))
+        assignment.total_payment = total_payment_for_assignment
+        assignment.work_description = work_log.work_description
+        assignment.status = 'completed'
+        assignment.end_time = datetime.utcnow()
+        db.add(assignment)
+
+        # 4. 更新主订单状态
+        order.status = OrderStatus.COMPLETED
+        order.actual_completion_time = datetime.utcnow()
+        db.add(order)
+        
+        # 5. 更新或创建当月工资单(wages)
+        pay_period = datetime.utcnow().strftime("%Y-%m")
+        wage = db.query(Wage).filter(
+            Wage.worker_id == worker_id,
+            Wage.pay_period == pay_period
+        ).first()
+        
+        if not wage:
+            wage = Wage(
+                worker_id=worker_id,
+                pay_period=pay_period,
+            )
+            db.add(wage)
+            db.flush() # flush to get wage object initialized
+
+        wage.total_hours = (wage.total_hours or 0) + Decimal(str(work_log.work_hours))
+        wage.regular_hours = (wage.regular_hours or 0) + regular_hours
+        wage.overtime_hours = (wage.overtime_hours or 0) + Decimal(str(work_log.overtime_hours))
+        wage.overtime_pay = (wage.overtime_pay or 0) + overtime_pay
+        # 假设本次工作的全部收入都算作基本工资，奖金等另外计算
+        wage.base_salary = (wage.base_salary or 0) + total_payment_for_assignment
+        wage.total_payment = (wage.total_payment or 0) + total_payment_for_assignment
+        
+        db.add(wage)
         db.commit()
         db.refresh(order)
         return order
