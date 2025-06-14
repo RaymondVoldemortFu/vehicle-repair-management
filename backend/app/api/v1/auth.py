@@ -205,7 +205,7 @@ def login_worker(
     # 生成访问令牌
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = security.create_access_token(
-        worker.id, expires_delta=access_token_expires, user_type="worker"
+        worker.id, expires_delta=access_token_expires#, user_type="worker"
     )
     
     logger.info(f"维修工人登录成功 - 工人ID: {worker.id}, 姓名: {worker.name}, IP: {client_ip}")

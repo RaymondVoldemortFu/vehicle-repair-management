@@ -117,6 +117,46 @@ def change_worker_password(
     return MessageResponse(message="密码修改成功")
 
 
+@router.get("/search/employee-id/{employee_id}", response_model=RepairWorkerResponse)
+def search_worker_by_employee_id(
+    *,
+    db: Session = Depends(get_db),
+    employee_id: str,
+    current_admin: Admin = Depends(get_current_active_admin),
+) -> Any:
+    """根据工号搜索维修工人（管理员专用）"""
+    worker = repair_worker_crud.get_by_employee_id(db, employee_id=employee_id)
+    if not worker:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="未找到该工号的维修工人"
+        )
+    
+    return worker
+
+
+@router.get("/statistics/overview", response_model=dict)
+def get_worker_statistics(
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_active_admin),
+) -> Any:
+    """获取维修工人统计信息（管理员专用）"""
+    total_workers = repair_worker_crud.count(db)
+    available_workers = len(repair_worker_crud.get_available_workers(db))
+    
+    # 按技能类型统计
+    skill_stats = {}
+    for skill_type in SkillType:
+        workers = repair_worker_crud.get_by_skill_type(db, skill_type=skill_type)
+        skill_stats[skill_type.value] = len(workers)
+    
+    return {
+        "total_workers": total_workers,
+        "available_workers": available_workers,
+        "skill_statistics": skill_stats
+    }
+
+
 @router.get("/{worker_id}", response_model=RepairWorkerDetail)
 def read_repair_worker(
     *,
@@ -180,44 +220,4 @@ def delete_repair_worker(
         )
     
     repair_worker_crud.remove(db, id=worker_id)
-    return MessageResponse(message="维修工人删除成功")
-
-
-@router.get("/search/employee-id/{employee_id}", response_model=RepairWorkerResponse)
-def search_worker_by_employee_id(
-    *,
-    db: Session = Depends(get_db),
-    employee_id: str,
-    current_admin: Admin = Depends(get_current_active_admin),
-) -> Any:
-    """根据工号搜索维修工人（管理员专用）"""
-    worker = repair_worker_crud.get_by_employee_id(db, employee_id=employee_id)
-    if not worker:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="未找到该工号的维修工人"
-        )
-    
-    return worker
-
-
-@router.get("/statistics/overview", response_model=dict)
-def get_worker_statistics(
-    db: Session = Depends(get_db),
-    current_admin: Admin = Depends(get_current_active_admin),
-) -> Any:
-    """获取维修工人统计信息（管理员专用）"""
-    total_workers = repair_worker_crud.count(db)
-    available_workers = len(repair_worker_crud.get_available_workers(db))
-    
-    # 按技能类型统计
-    skill_stats = {}
-    for skill_type in SkillType:
-        workers = repair_worker_crud.get_by_skill_type(db, skill_type=skill_type)
-        skill_stats[skill_type.value] = len(workers)
-    
-    return {
-        "total_workers": total_workers,
-        "available_workers": available_workers,
-        "skill_statistics": skill_stats
-    } 
+    return MessageResponse(message="维修工人删除成功") 

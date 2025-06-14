@@ -40,6 +40,15 @@ class CRUDRepairWorker(CRUDBase[RepairWorker, RepairWorkerCreate, RepairWorkerUp
         """检查维修工人是否活跃"""
         return worker.status == WorkerStatus.ACTIVE
 
+    def authenticate(self, db: Session, *, employee_id: str, password: str) -> Optional[RepairWorker]:
+        """维修工人认证"""
+        worker = self.get_by_employee_id(db, employee_id=employee_id)
+        if not worker:
+            return None
+        if not self.verify_password(password, worker.hashed_password):
+            return None
+        return worker
+
     def create(self, db: Session, *, obj_in: RepairWorkerCreate) -> RepairWorker:
         """创建维修工人"""
         # 加密密码
