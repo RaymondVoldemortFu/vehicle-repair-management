@@ -93,7 +93,7 @@
               v-if="row.status === 'in_progress'" 
               size="small" 
               type="success" 
-              @click="updateStatus(row.id, 'completed')"
+              @click="openCompletionDialog(row)"
             >
               完成维修
             </el-button>
@@ -144,6 +144,25 @@
       </template>
     </el-dialog>
 
+    <!-- 完成维修对话框 -->
+    <el-dialog v-model="completionDialogVisible" title="完成维修与工时记录" width="500px">
+      <el-form ref="completionFormRef" :model="completionForm" :rules="completionFormRules" label-width="100px">
+        <el-form-item label="总工时" prop="work_hours">
+          <el-input-number v-model="completionForm.work_hours" :min="0" :precision="2" controls-position="right" style="width: 100%;" />
+        </el-form-item>
+        <el-form-item label="加班工时" prop="overtime_hours">
+          <el-input-number v-model="completionForm.overtime_hours" :min="0" :precision="2" controls-position="right" style="width: 100%;" />
+        </el-form-item>
+        <el-form-item label="工作描述" prop="work_description">
+          <el-input v-model="completionForm.work_description" type="textarea" :rows="3" placeholder="请输入本次维修工作的详细内容" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="completionDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitCompletionForm">提交</el-button>
+      </template>
+    </el-dialog>
+
     <!-- 可接订单对话框 -->
     <el-dialog v-model="availableOrdersDialogVisible" title="接单中心" width="80%">
       <el-table v-loading="availableLoading" :data="availableOrders" style="width: 100%">
@@ -177,7 +196,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { getWorkerOrders, updateWorkerOrderStatus, getAvailableOrders, acceptOrder, rejectOrder } from '@/api/repairOrder';
+import { getWorkerOrders, updateWorkerOrderStatus, getAvailableOrders, acceptOrder, rejectOrder, completeOrder } from '@/api/repairOrder';
 
 const loading = ref(true);
 const showDetailDialog = ref(false);
@@ -203,6 +222,20 @@ const pagination = reactive({
   size: 10,
   total: 0,
 });
+
+const completionDialogVisible = ref(false);
+const completionFormRef = ref(null);
+const activeOrder = ref(null);
+
+const completionForm = reactive({
+  work_hours: 0,
+  overtime_hours: 0,
+  work_description: '',
+});
+
+const completionFormRules = {
+  work_hours: [{ required: true, message: '请输入总工时', trigger: 'blur' }],
+};
 
 const fetchData = async () => {
   loading.value = true;
@@ -337,6 +370,34 @@ const handleReject = async (order) => {
       ElMessage.error('拒绝订单失败');
     }
   }
+};
+
+const openCompletionDialog = (order) => {
+  activeOrder.value = order;
+  // Reset form
+  Object.assign(completionForm, {
+    work_hours: 0,
+    overtime_hours: 0,
+    work_description: '',
+  });
+  completionDialogVisible.value = true;
+};
+
+const submitCompletionForm = async () => {
+  if (!completionFormRef.value) return;
+  await completionFormRef.value.validate(async (valid) => {
+    if (valid) {
+      try {
+        await completeOrder(activeOrder.value.id, completionForm);
+        ElMessage.success('工时记录提交成功，订单已完成');
+        completionDialogVisible.value = false;
+        fetchData();
+      } catch (error) {
+        console.error('完成订单失败:', error);
+        ElMessage.error(error.response?.data?.detail || '操作失败');
+      }
+    }
+  });
 };
 
 onMounted(() => {

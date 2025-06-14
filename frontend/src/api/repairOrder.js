@@ -36,4 +36,20 @@ export function rejectOrder(orderId) {
     url: `/repair-orders/${orderId}/reject`,
     method: 'put'
   });
+}
+
+/**
+ * 工人完成订单并提交工时
+ * @param {number} orderId - 订单ID
+ * @param {object} data - 工时数据
+ * @param {number} data.work_hours - 总工时
+ * @param {number} data.overtime_hours - 加班工时
+ * @param {string} [data.work_description] - 工作描述
+ */
+export function completeOrder(orderId, data) {
+  return request({
+    url: `/repair-orders/worker-orders/${orderId}/complete`,
+    method: 'post',
+    data
+  });
 } 
