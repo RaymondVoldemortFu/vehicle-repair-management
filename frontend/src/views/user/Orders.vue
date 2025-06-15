@@ -74,7 +74,7 @@
               v-if="row.status === 'completed'" 
               type="success" 
               size="small" 
-              @click="handleFeedback(row)"
+              @click="goToFeedbackPage"
             >
               评价
             </el-button>
@@ -218,6 +218,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/utils/request'
 import dayjs from 'dayjs'
+import { useRouter } from 'vue-router'
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -227,6 +228,7 @@ const feedbackDialogVisible = ref(false)
 const tableData = ref([])
 const vehicles = ref([])
 const currentOrder = ref({})
+const router = useRouter()
 
 const searchForm = reactive({
   keyword: '',
@@ -455,6 +457,10 @@ const handleSizeChange = (size) => {
 const handleCurrentChange = (page) => {
   pagination.page = page
   fetchData()
+}
+
+const goToFeedbackPage = () => {
+  router.push('/user/feedback')
 }
 
 onMounted(() => {

@@ -8,7 +8,7 @@
       </div>
       <div class="header-right">
         <el-button @click="showCalculateDialog = true">
-          <el-icon><Calculator /></el-icon>
+          <el-icon><DataAnalysis /></el-icon>
           工资计算
         </el-button>
         <el-button @click="showBatchPayDialog = true">
@@ -429,7 +429,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
-  Search, Calculator, CreditCard, Money, Clock, TrendCharts, Star, 
+  Search, DataAnalysis, CreditCard, Money, Clock, TrendCharts, Star, 
   ArrowDown 
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
