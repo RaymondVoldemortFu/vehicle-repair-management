@@ -198,59 +198,38 @@ def read_all_workers(
     workers = repair_worker_crud.get_multi(db, limit=1000)
     return workers
 
-@router.post("/admin/", response_model=dict)
-def create_wage_record(
+@router.post("/", response_model=Wage)
+def create_wage(
     *,
     db: Session = Depends(get_db),
-    wage_data: dict,
+    wage_in: WageCreate,
     current_admin: Admin = Depends(get_admin_with_wage_management_permission),
 ) -> Any:
-    """创建工资记录（管理员专用）"""
-    # 检查是否已存在该工人该月的工资记录
-    existing_wage = next((
-        w for w in MOCK_WAGES 
-        if w["worker_id"] == wage_data["worker_id"] 
-        and w["year"] == wage_data["year"] 
-        and w["month"] == wage_data["month"]
-    ), None)
-    
+    """
+    创建新的工资记录 (管理员专用)
+    """
+    # 检查该工人该月的工资记录是否已存在
+    existing_wage = wage_crud.get_by_worker_and_period(
+        db, worker_id=wage_in.worker_id, period=wage_in.period
+    )
     if existing_wage:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="该工人该月的工资记录已存在"
+            detail=f"工人ID {wage_in.worker_id} 在 {wage_in.period} 的工资记录已存在。"
         )
+
+    # 重新计算总金额以确保准确性
+    wage_in.total_amount = (
+        wage_in.base_salary +
+        wage_in.overtime_pay +
+        wage_in.commission +
+        wage_in.bonus -
+        wage_in.deductions
+    )
     
-    # 生成新ID
-    new_id = max([w["id"] for w in MOCK_WAGES]) + 1 if MOCK_WAGES else 1
-    
-    # 计算总工资
-    base_salary = wage_data.get("base_salary", 0)
-    overtime_pay = wage_data.get("overtime_pay", 0)
-    bonus = wage_data.get("bonus", 0)
-    deductions = wage_data.get("deductions", 0)
-    total_salary = base_salary + overtime_pay + bonus - deductions
-    
-    new_wage = {
-        "id": new_id,
-        "worker_id": wage_data["worker_id"],
-        "worker_name": wage_data["worker_name"],
-        "year": wage_data["year"],
-        "month": wage_data["month"],
-        "base_salary": base_salary,
-        "overtime_hours": wage_data.get("overtime_hours", 0),
-        "overtime_rate": wage_data.get("overtime_rate", 0),
-        "overtime_pay": overtime_pay,
-        "bonus": bonus,
-        "deductions": deductions,
-        "total_salary": total_salary,
-        "status": "pending",
-        "pay_date": None,
-        "created_at": datetime.now().isoformat(),
-        "updated_at": datetime.now().isoformat()
-    }
-    
-    MOCK_WAGES.append(new_wage)
-    return new_wage
+    # 创建工资记录
+    wage = wage_crud.create(db, obj_in=wage_in)
+    return wage
 
 
 @router.put("/admin/{wage_id}", response_model=dict)

@@ -7,6 +7,10 @@
         <p class="page-description">管理工人工资计算、发放记录和提成统计</p>
       </div>
       <div class="header-right">
+        <el-button type="success" @click="openNewWageDialog">
+          <el-icon><CirclePlus /></el-icon>
+          新建工资条
+        </el-button>
         <el-button @click="showCalculateDialog = true" disabled>
           <el-icon><DataAnalysis /></el-icon>
           工资计算
@@ -200,13 +204,87 @@
       </template>
     </el-dialog>
 
+    <!-- 新建工资条对话框 -->
+    <el-dialog v-model="showNewWageDialog" title="新建工资条" width="700px" @closed="resetNewWageForm">
+      <el-form ref="newWageFormRef" :model="newWageForm" :rules="newWageFormRules" label-width="100px">
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="选择工人" prop="worker_id">
+              <el-select v-model="newWageForm.worker_id" placeholder="请选择工人" filterable style="width: 100%;">
+                <el-option v-for="worker in workers" :key="worker.id" :label="`${worker.name} (${worker.employee_id})`" :value="worker.id" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="工资周期" prop="period">
+              <el-date-picker
+                v-model="newWageForm.period"
+                type="month"
+                placeholder="选择年月"
+                format="YYYY-MM"
+                value-format="YYYY-MM"
+                style="width: 100%;"
+              />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-divider />
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="基础工资" prop="base_salary">
+              <el-input-number v-model="newWageForm.base_salary" :precision="2" :step="100" :min="0" style="width: 100%;" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="工作天数" prop="work_days">
+              <el-input-number v-model="newWageForm.work_days" :min="0" style="width: 100%;" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="加班时长" prop="overtime_hours">
+              <el-input-number v-model="newWageForm.overtime_hours" :precision="2" :step="1" :min="0" style="width: 100%;" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="加班费" prop="overtime_pay">
+              <el-input-number v-model="newWageForm.overtime_pay" :precision="2" :step="50" :min="0" style="width: 100%;" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="提成" prop="commission">
+              <el-input-number v-model="newWageForm.commission" :precision="2" :step="100" :min="0" style="width: 100%;" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="奖金" prop="bonus">
+              <el-input-number v-model="newWageForm.bonus" :precision="2" :step="100" :min="0" style="width: 100%;" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="扣款" prop="deductions">
+              <el-input-number v-model="newWageForm.deductions" :precision="2" :step="50" :min="0" style="width: 100%;" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="备注" prop="notes">
+          <el-input v-model="newWageForm.notes" type="textarea" :rows="3" placeholder="请输入备注信息" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showNewWageDialog = false">取消</el-button>
+          <el-button type="primary" @click="handleCreateWage">创建</el-button>
+        </span>
+      </template>
+    </el-dialog>
+
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, DataAnalysis, CreditCard, Money } from '@element-plus/icons-vue'
+import { Search, DataAnalysis, CreditCard, Money, CirclePlus } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import dayjs from 'dayjs'
 
@@ -234,6 +312,29 @@ const pagination = reactive({
 
 const wages = ref([])
 const workers = ref([])
+
+const showNewWageDialog = ref(false)
+const newWageFormRef = ref(null)
+const initialNewWageForm = {
+  worker_id: null,
+  period: '',
+  base_salary: 0,
+  work_days: 0,
+  overtime_hours: 0,
+  overtime_pay: 0,
+  commission: 0,
+  bonus: 0,
+  deductions: 0,
+  total_amount: 0, // Will be calculated
+  status: 'pending',
+  notes: ''
+}
+const newWageForm = reactive({ ...initialNewWageForm })
+
+const newWageFormRules = {
+  worker_id: [{ required: true, message: '请选择工人', trigger: 'change' }],
+  period: [{ required: true, message: '请选择工资周期', trigger: 'change' }],
+}
 
 const fetchWages = async () => {
   loading.value = true
@@ -360,6 +461,34 @@ const getRowClassName = ({ row }) => {
     return 'pending-row'
   }
   return ''
+}
+
+const openNewWageDialog = () => {
+  showNewWageDialog.value = true
+}
+
+const resetNewWageForm = () => {
+  if (newWageFormRef.value) {
+    newWageFormRef.value.resetFields()
+  }
+  Object.assign(newWageForm, initialNewWageForm)
+}
+
+const handleCreateWage = async () => {
+  if (!newWageFormRef.value) return
+  await newWageFormRef.value.validate(async (valid) => {
+    if (valid) {
+      try {
+        await request.post('/wages/', newWageForm)
+        ElMessage.success('工资条创建成功！')
+        showNewWageDialog.value = false
+        fetchWages()
+      } catch (error) {
+        console.error('创建工资条失败:', error)
+        // 错误消息会由响应拦截器自动处理
+      }
+    }
+  })
 }
 
 onMounted(() => {
