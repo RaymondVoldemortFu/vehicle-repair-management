@@ -358,5 +358,16 @@ class CRUDRepairOrder(CRUDBase[RepairOrder, RepairOrderCreate, RepairOrderUpdate
         db.refresh(order)
         return order
 
+    def get_revenue_by_month(self, db: Session, year: int, month: int) -> Decimal:
+        """根据年月计算总收入"""
+        total_revenue = db.query(func.sum(RepairOrder.total_cost)).filter(
+            and_(
+                func.extract('year', RepairOrder.actual_completion_time) == year,
+                func.extract('month', RepairOrder.actual_completion_time) == month,
+                RepairOrder.status == OrderStatus.COMPLETED
+            )
+        ).scalar()
+        return total_revenue or Decimal(0)
+
 
 repair_order_crud = CRUDRepairOrder(RepairOrder) 

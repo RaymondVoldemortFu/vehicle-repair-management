@@ -15,11 +15,6 @@
           <div class="stat-content">
             <div class="stat-value">{{ stats.userCount || 0 }}</div>
             <div class="stat-label">用户总数</div>
-            <div class="stat-trend">
-              <span :class="stats.userTrend > 0 ? 'trend-up' : 'trend-down'">
-                {{ stats.userTrend > 0 ? '↗' : '↘' }} {{ Math.abs(stats.userTrend || 0) }}%
-              </span>
-            </div>
           </div>
         </div>
       </el-col>
@@ -31,11 +26,6 @@
           <div class="stat-content">
             <div class="stat-value">{{ stats.vehicleCount || 0 }}</div>
             <div class="stat-label">车辆总数</div>
-            <div class="stat-trend">
-              <span :class="stats.vehicleTrend > 0 ? 'trend-up' : 'trend-down'">
-                {{ stats.vehicleTrend > 0 ? '↗' : '↘' }} {{ Math.abs(stats.vehicleTrend || 0) }}%
-              </span>
-            </div>
           </div>
         </div>
       </el-col>
@@ -47,11 +37,6 @@
           <div class="stat-content">
             <div class="stat-value">{{ stats.orderCount || 0 }}</div>
             <div class="stat-label">维修订单</div>
-            <div class="stat-trend">
-              <span :class="stats.orderTrend > 0 ? 'trend-up' : 'trend-down'">
-                {{ stats.orderTrend > 0 ? '↗' : '↘' }} {{ Math.abs(stats.orderTrend || 0) }}%
-              </span>
-            </div>
           </div>
         </div>
       </el-col>
@@ -63,11 +48,6 @@
           <div class="stat-content">
             <div class="stat-value">¥{{ formatMoney(stats.revenue || 0) }}</div>
             <div class="stat-label">本月收入</div>
-            <div class="stat-trend">
-              <span :class="stats.revenueTrend > 0 ? 'trend-up' : 'trend-down'">
-                {{ stats.revenueTrend > 0 ? '↗' : '↘' }} {{ Math.abs(stats.revenueTrend || 0) }}%
-              </span>
-            </div>
           </div>
         </div>
       </el-col>
@@ -83,7 +63,7 @@
       </el-col>
       <el-col :span="6">
         <div class="status-card processing">
-          <div class="status-value">{{ orderStats.inProgress || 0 }}</div>
+          <div class="status-value">{{ orderStats.in_progress || 0 }}</div>
           <div class="status-label">进行中</div>
         </div>
       </el-col>
@@ -160,18 +140,14 @@ const chartLoading = ref(false)
 
 const stats = reactive({
   userCount: 0,
-  userTrend: 0,
   vehicleCount: 0,
-  vehicleTrend: 0,
   orderCount: 0,
-  orderTrend: 0,
-  revenue: 0,
-  revenueTrend: 0
+  revenue: 0
 })
 
 const orderStats = reactive({
   pending: 0,
-  inProgress: 0,
+  in_progress: 0,
   completed: 0,
   cancelled: 0
 })
@@ -182,19 +158,22 @@ const recentActivities = ref([])
 const fetchDashboardData = async () => {
   loading.value = true
   try {
-    const [
-      analyticsRes,
-      orderStatsRes,
-      // 这里可以添加更多API调用
-    ] = await Promise.all([
-      request.get('/analytics/dashboard'),
-      request.get('/repair-orders/statistics/overview'),
-      // 其他API调用
-    ])
+    const analyticsRes = await request.get('/analytics/dashboard')
 
     // 更新统计数据
-    Object.assign(stats, analyticsRes)
-    Object.assign(orderStats, orderStatsRes)
+    if (analyticsRes && analyticsRes.basic_stats) {
+      stats.userCount = analyticsRes.basic_stats.total_users
+      stats.vehicleCount = analyticsRes.basic_stats.total_vehicles
+      stats.orderCount = analyticsRes.basic_stats.total_orders
+      stats.revenue = analyticsRes.basic_stats.monthly_revenue
+    }
+    
+    if (analyticsRes && analyticsRes.order_statistics) {
+        orderStats.pending = analyticsRes.order_statistics.pending
+        orderStats.in_progress = analyticsRes.order_statistics.in_progress
+        orderStats.completed = analyticsRes.order_statistics.completed
+        orderStats.cancelled = analyticsRes.order_statistics.cancelled
+    }
 
     // 模拟活动数据
     recentActivities.value = [
@@ -223,18 +202,14 @@ const fetchDashboardData = async () => {
     // 使用模拟数据
     Object.assign(stats, {
       userCount: 1250,
-      userTrend: 12.5,
       vehicleCount: 2100,
-      vehicleTrend: 8.3,
       orderCount: 450,
-      orderTrend: 15.2,
-      revenue: 125000,
-      revenueTrend: 22.1
+      revenue: 125000
     })
 
     Object.assign(orderStats, {
       pending: 25,
-      inProgress: 48,
+      in_progress: 48,
       completed: 320,
       cancelled: 12
     })
@@ -355,18 +330,6 @@ onMounted(() => {
       font-size: 14px;
       color: #606266;
       margin: 4px 0;
-    }
-
-    .stat-trend {
-      font-size: 12px;
-
-      .trend-up {
-        color: #52c41a;
-      }
-
-      .trend-down {
-        color: #f5222d;
-      }
     }
   }
 }

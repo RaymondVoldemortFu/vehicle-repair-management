@@ -33,13 +33,18 @@ def get_dashboard_data(
     # 可用工人数量
     available_workers = len(repair_worker_crud.get_available_workers(db))
     
+    # 本月收入
+    now = datetime.now()
+    monthly_revenue = repair_order_crud.get_revenue_by_month(db, year=now.year, month=now.month)
+    
     return {
         "basic_stats": {
             "total_users": total_users,
             "total_vehicles": total_vehicles,
             "total_orders": total_orders,
             "total_workers": total_workers,
-            "available_workers": available_workers
+            "available_workers": available_workers,
+            "monthly_revenue": monthly_revenue
         },
         "order_statistics": order_stats,
         "last_updated": datetime.now().isoformat()
