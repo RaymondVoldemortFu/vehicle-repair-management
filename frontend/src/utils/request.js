@@ -13,8 +13,12 @@ const request = axios.create({
 request.interceptors.request.use(
   config => {
     const authStore = useAuthStore()
+    console.log('[Request Interceptor] Auth Store Token:', authStore.token);
     if (authStore.token) {
+      console.log('[Request Interceptor] Attaching token to headers.');
       config.headers.Authorization = `Bearer ${authStore.token}`
+    } else {
+      console.warn('[Request Interceptor] No token found in auth store.');
     }
     return config
   },

@@ -250,7 +250,7 @@ const fetchWages = async () => {
       }
     })
     
-    const res = await request.get('/wages', { params })
+    const res = await request.get('/wages/', { params })
     wages.value = res.data
     pagination.total = res.total
   } catch (error) {

@@ -5,13 +5,13 @@ from datetime import datetime, date
 from decimal import Decimal
 
 from app.config.database import get_db
-from app.core.deps import get_current_active_admin, get_current_active_worker
+from app.core.deps import get_current_active_worker, get_admin_with_wage_management_permission
 from app.models.admin import Admin
 from app.models.repair_worker import RepairWorker
 from app.models.wage import WageStatus
 from app.schemas.wage import Wage, WageCreate, WageUpdate, WageWithWorker
 from app.schemas.repair_worker import RepairWorker as RepairWorkerSchema
-from app.crud import wage as wage_crud
+from app.crud.wage import wage_crud
 from app.crud.repair_worker import repair_worker_crud
 from app.schemas.base import MessageResponse, PaginationParams, PaginatedResponse
 
@@ -166,12 +166,12 @@ def read_wages(
     status: Optional[WageStatus] = None,
     month: Optional[str] = None, # YYYY-MM
     min_amount: Optional[Decimal] = None,
-    current_admin: Admin = Depends(get_current_active_admin),
+    current_admin: Admin = Depends(get_admin_with_wage_management_permission),
 ) -> Any:
     """
     获取工资列表（管理员专用），带筛选和分页
     """
-    result = wage_crud.wage.get_multi_with_filter(
+    result = wage_crud.get_multi_with_filter(
         db,
         skip=skip,
         limit=limit,
@@ -180,17 +180,17 @@ def read_wages(
         month=month,
         min_amount=min_amount
     )
-    return PaginatedResponse(
+    return PaginatedResponse.create(
+        items=result["wages"],
         total=result["total"],
-        skip=skip,
-        limit=limit,
-        data=result["wages"]
+        page=(skip // limit) + 1 if limit > 0 else 1,
+        size=limit
     )
 
 @router.get("/workers", response_model=List[RepairWorkerSchema])
 def read_all_workers(
     db: Session = Depends(get_db),
-    current_admin: Admin = Depends(get_current_active_admin),
+    current_admin: Admin = Depends(get_admin_with_wage_management_permission),
 ) -> Any:
     """
     获取所有工人列表（用于下拉选择）
@@ -203,7 +203,7 @@ def create_wage_record(
     *,
     db: Session = Depends(get_db),
     wage_data: dict,
-    current_admin: Admin = Depends(get_current_active_admin),
+    current_admin: Admin = Depends(get_admin_with_wage_management_permission),
 ) -> Any:
     """创建工资记录（管理员专用）"""
     # 检查是否已存在该工人该月的工资记录
@@ -259,7 +259,7 @@ def update_wage_record(
     db: Session = Depends(get_db),
     wage_id: int,
     wage_data: dict,
-    current_admin: Admin = Depends(get_current_active_admin),
+    current_admin: Admin = Depends(get_admin_with_wage_management_permission),
 ) -> Any:
     """更新工资记录（管理员专用）"""
     wage_index = next((i for i, w in enumerate(MOCK_WAGES) if w["id"] == wage_id), None)
@@ -301,7 +301,7 @@ def mark_wage_as_paid(
     *,
     db: Session = Depends(get_db),
     wage_id: int,
-    current_admin: Admin = Depends(get_current_active_admin),
+    current_admin: Admin = Depends(get_admin_with_wage_management_permission),
 ) -> Any:
     """标记工资为已支付（管理员专用）"""
     wage_index = next((i for i, w in enumerate(MOCK_WAGES) if w["id"] == wage_id), None)
@@ -329,7 +329,7 @@ def delete_wage_record(
     *,
     db: Session = Depends(get_db),
     wage_id: int,
-    current_admin: Admin = Depends(get_current_active_admin),
+    current_admin: Admin = Depends(get_admin_with_wage_management_permission),
 ) -> Any:
     """删除工资记录（管理员专用）"""
     wage_index = next((i for i, w in enumerate(MOCK_WAGES) if w["id"] == wage_id), None)
@@ -354,7 +354,7 @@ def delete_wage_record(
 def get_wage_statistics(
     db: Session = Depends(get_db),
     year: int = None,
-    current_admin: Admin = Depends(get_current_active_admin),
+    current_admin: Admin = Depends(get_admin_with_wage_management_permission),
 ) -> Any:
     """获取工资统计信息（管理员专用）"""
     wages = MOCK_WAGES.copy()
