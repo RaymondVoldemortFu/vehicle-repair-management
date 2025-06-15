@@ -306,27 +306,32 @@ class CRUDRepairOrder(CRUDBase[RepairOrder, RepairOrderCreate, RepairOrderUpdate
         db.add(order)
         
         # 5. 更新或创建当月工资单(wages)
-        pay_period = datetime.utcnow().strftime("%Y-%m")
+        pay_period = datetime.now().strftime('%Y-%m')
         wage = db.query(Wage).filter(
-            Wage.worker_id == worker_id,
-            Wage.pay_period == pay_period
+            Wage.worker_id == worker.id,
+            Wage.period == pay_period
         ).first()
         
         if not wage:
             wage = Wage(
-                worker_id=worker_id,
-                pay_period=pay_period,
+                worker_id=worker.id,
+                period=pay_period,
             )
             db.add(wage)
             db.flush() # flush to get wage object initialized
 
-        wage.total_hours = (wage.total_hours or 0) + Decimal(str(work_log.work_hours))
-        wage.regular_hours = (wage.regular_hours or 0) + regular_hours
+        # 将本次工作产生的收入记为提成，并累加加班时长
+        wage.commission = (wage.commission or 0) + total_payment_for_assignment
         wage.overtime_hours = (wage.overtime_hours or 0) + Decimal(str(work_log.overtime_hours))
-        wage.overtime_pay = (wage.overtime_pay or 0) + overtime_pay
-        # 假设本次工作的全部收入都算作基本工资，奖金等另外计算
-        wage.base_salary = (wage.base_salary or 0) + total_payment_for_assignment
-        wage.total_payment = (wage.total_payment or 0) + total_payment_for_assignment
+        
+        # 重新计算总金额
+        wage.total_amount = (
+            (wage.base_salary or 0) +
+            (wage.overtime_pay or 0) +
+            (wage.commission or 0) +
+            (wage.bonus or 0) -
+            (wage.deductions or 0)
+        )
         
         db.add(wage)
         db.commit()

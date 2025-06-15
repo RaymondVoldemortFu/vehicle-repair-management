@@ -296,7 +296,7 @@ def update_wage_record(
     return MOCK_WAGES[wage_index]
 
 
-@router.put("/admin/{wage_id}/pay", response_model=dict)
+@router.put("/admin/{wage_id}/pay", response_model=Wage)
 def mark_wage_as_paid(
     *,
     db: Session = Depends(get_db),
@@ -304,24 +304,26 @@ def mark_wage_as_paid(
     current_admin: Admin = Depends(get_admin_with_wage_management_permission),
 ) -> Any:
     """标记工资为已支付（管理员专用）"""
-    wage_index = next((i for i, w in enumerate(MOCK_WAGES) if w["id"] == wage_id), None)
-    if wage_index is None:
+    wage = wage_crud.get(db, id=wage_id)
+    if not wage:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="工资记录不存在"
         )
     
-    if MOCK_WAGES[wage_index]["status"] != "pending":
+    if wage.status != WageStatus.PENDING:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="只能支付待支付的工资"
+            detail="只能对'待发放'状态的工资进行此操作"
         )
     
-    MOCK_WAGES[wage_index]["status"] = "paid"
-    MOCK_WAGES[wage_index]["pay_date"] = date.today().isoformat()
-    MOCK_WAGES[wage_index]["updated_at"] = datetime.now().isoformat()
+    updated_wage = wage_crud.update(
+        db, 
+        db_obj=wage, 
+        obj_in={"status": WageStatus.PAID, "pay_date": date.today()}
+    )
     
-    return MOCK_WAGES[wage_index]
+    return updated_wage
 
 
 @router.delete("/admin/{wage_id}", response_model=MessageResponse)

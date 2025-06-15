@@ -15,7 +15,7 @@
           <el-icon><CreditCard /></el-icon>
           批量发放
         </el-button>
-        <el-button type="primary" @click="showPayDialog = true" disabled>
+        <el-button type="primary" @click="handlePaySelected" :disabled="!isSinglePendingSelected">
           <el-icon><Money /></el-icon>
           发放工资
         </el-button>
@@ -148,7 +148,6 @@
               size="small"
               type="primary"
               @click="payWage(row)"
-              disabled
             >
               发放
             </el-button>
@@ -205,8 +204,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, reactive, onMounted, computed } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, DataAnalysis, CreditCard, Money } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import dayjs from 'dayjs'
@@ -215,6 +214,10 @@ const loading = ref(false)
 const showDetailDialog = ref(false)
 const selectedWage = ref(null)
 const selectedWages = ref([])
+
+const isSinglePendingSelected = computed(() => {
+  return selectedWages.value.length === 1 && selectedWages.value[0].status === 'pending'
+})
 
 const searchForm = reactive({
   keyword: '',
@@ -251,7 +254,7 @@ const fetchWages = async () => {
     })
     
     const res = await request.get('/wages/', { params })
-    wages.value = res.data
+    wages.value = res.items
     pagination.total = res.total
   } catch (error) {
     ElMessage.error('获取工资列表失败')
@@ -293,8 +296,33 @@ const viewWage = (wage) => {
   showDetailDialog.value = true
 }
 
-const payWage = (wage) => {
-  ElMessage.info('发放功能开发中')
+const handlePaySelected = () => {
+  if (isSinglePendingSelected.value) {
+    payWage(selectedWages.value[0])
+  }
+}
+
+const payWage = async (wage) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要为【${wage.worker.name}】发放 ${wage.period} 的工资吗？`,
+      '工资发放确认',
+      {
+        confirmButtonText: '确定发放',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+    
+    await request.put(`/wages/admin/${wage.id}/pay`)
+    ElMessage.success('工资发放成功！')
+    fetchWages()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('工资发放失败:', error)
+      // 错误消息会由响应拦截器自动处理
+    }
+  }
 }
 
 const handleSizeChange = (size) => {
