@@ -58,12 +58,12 @@ class CRUDWage(CRUDBase[Wage, WageCreate, WageUpdate]):
         query = db.query(Wage).filter(Wage.worker_id == worker_id)
         
         if start_date:
-            query = query.filter(Wage.pay_period >= start_date)
+            query = query.filter(Wage.period >= start_date)
             
         if end_date:
-            query = query.filter(Wage.pay_period <= end_date)
+            query = query.filter(Wage.period <= end_date)
             
-        return query.order_by(Wage.pay_period.desc()).all()
+        return query.order_by(Wage.period.desc()).all()
 
     def get_by_worker_and_period(self, db: Session, *, worker_id: int, period: str) -> Optional[Wage]:
         """

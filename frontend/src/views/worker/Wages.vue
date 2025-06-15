@@ -104,12 +104,12 @@
         stripe
         style="width: 100%"
       >
-        <el-table-column prop="pay_period" label="月份" width="120">
+        <el-table-column prop="period" label="月份" width="120">
           <template #default="{ row }">
-            <span>{{ formatMonth(row.pay_period) }}</span>
+            <span>{{ formatMonth(row.period) }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="base_salary" label="基本工资" width="120">
+        <el-table-column prop="base_salary" label="基础工资" width="120">
           <template #default="{ row }">
             <span>¥{{ formatNumber(row.base_salary) }}</span>
           </template>
@@ -124,14 +124,14 @@
             <span>¥{{ formatNumber(row.bonus) }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="total_payment" label="实发工资" width="120">
+        <el-table-column prop="total_amount" label="实发工资" width="120">
           <template #default="{ row }">
-            <span class="total-amount">¥{{ formatNumber(row.total_payment) }}</span>
+            <span class="total-amount">¥{{ formatNumber(row.total_amount) }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="total_hours" label="工作时长" width="120">
+        <el-table-column prop="overtime_hours" label="工作时长" width="120">
           <template #default="{ row }">
-            <span>{{ formatNumber(row.total_hours) }}h</span>
+            <span>{{ formatNumber(row.overtime_hours) }}h</span>
           </template>
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
@@ -195,13 +195,13 @@ const resetFilters = () => {
 
 const calculateSummary = (wages) => {
   const currentMonthStr = dayjs().format('YYYY-MM')
-  const currentMonthData = wages.find(w => w.pay_period === currentMonthStr)
+  const currentMonthData = wages.find(w => w.period === currentMonthStr)
 
-  summary.currentMonthWage = currentMonthData ? parseFloat(currentMonthData.total_payment) : 0
-  summary.currentMonthHours = currentMonthData ? parseFloat(currentMonthData.total_hours) : 0
+  summary.currentMonthWage = currentMonthData ? parseFloat(currentMonthData.total_amount) : 0
+  summary.currentMonthHours = currentMonthData ? parseFloat(currentMonthData.overtime_hours) : 0
   summary.currentMonthBonus = currentMonthData ? parseFloat(currentMonthData.bonus) : 0
   
-  summary.totalEarnings = wages.reduce((total, wage) => total + parseFloat(wage.total_payment), 0)
+  summary.totalEarnings = wages.reduce((total, wage) => total + parseFloat(wage.total_amount), 0)
 }
 
 const getStatusText = (status) => {

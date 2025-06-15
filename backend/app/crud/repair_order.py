@@ -5,10 +5,11 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, func
 from app.crud.base import CRUDBase
 from app.models.repair_order import RepairOrder, OrderStatus
-from app.models.repair_worker import RepairWorker
+from app.models.repair_worker import RepairWorker, WorkerStatus
 from app.models.repair_order_worker import RepairOrderWorker
 from app.models.wage import Wage
 from app.schemas.repair_order import RepairOrderCreate, RepairOrderUpdate, WorkCompletionUpdate
+import random
 
 # 加班费率
 OVERTIME_RATE_MULTIPLIER = Decimal("1.5")
@@ -57,7 +58,7 @@ class CRUDRepairOrder(CRUDBase[RepairOrder, RepairOrderCreate, RepairOrderUpdate
         return self.get_by_status(db, status=OrderStatus.IN_PROGRESS, skip=skip, limit=limit)
 
     def create_with_order_number(self, db: Session, *, obj_in: RepairOrderCreate, user_id: int) -> RepairOrder:
-        """创建维修订单并生成订单编号"""
+        """创建维修订单并生成订单编号, 并尝试自动分配给一个随机的空闲工人"""
         # 生成订单编号
         order_number = self._generate_order_number(db)
         
@@ -69,8 +70,27 @@ class CRUDRepairOrder(CRUDBase[RepairOrder, RepairOrderCreate, RepairOrderUpdate
             priority=obj_in.priority,
             create_time=datetime.utcnow(),
             estimated_completion_time=obj_in.estimated_completion_time,
+            status=OrderStatus.PENDING  # 默认状态
         )
         db.add(db_obj)
+        db.flush() # 先 flush 以获取订单的 ID
+
+        # 尝试自动分配
+        active_workers = db.query(RepairWorker).filter(RepairWorker.status == WorkerStatus.ACTIVE).all()
+        if active_workers:
+            assigned_worker = random.choice(active_workers)
+            
+            # 创建关联记录
+            assignment = RepairOrderWorker(
+                order_id=db_obj.id,
+                worker_id=assigned_worker.id,
+                hourly_rate=assigned_worker.hourly_rate
+            )
+            db.add(assignment)
+            
+            # 更新订单状态
+            db_obj.status = OrderStatus.IN_PROGRESS
+
         db.commit()
         db.refresh(db_obj)
         return db_obj
