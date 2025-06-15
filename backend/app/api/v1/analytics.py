@@ -1,5 +1,5 @@
 from typing import Any, Dict
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 
@@ -10,7 +10,9 @@ from app.crud.vehicle import vehicle_crud
 from app.crud.repair_order import repair_order_crud
 from app.crud.repair_worker import repair_worker_crud
 from app.crud.admin import admin_crud
+from app.crud.analytics import analytics_crud
 from app.models.admin import Admin
+from app.schemas.analytics import ComprehensiveAnalyticsResponse
 
 router = APIRouter()
 
@@ -187,4 +189,30 @@ def get_monthly_report(
         "order_analysis": order_stats,
         "generated_at": datetime.now().isoformat(),
         "note": "这是基于当前数据的报告，需要实现按月份筛选的功能"
-    } 
+    }
+
+
+@router.get("/comprehensive", response_model=ComprehensiveAnalyticsResponse)
+def get_comprehensive_analytics(
+    db: Session = Depends(get_db),
+    cost_period: str = Query("month", enum=["month", "quarter"]),
+    current_admin: Admin = Depends(get_current_active_admin),
+) -> Any:
+    """获取综合数据分析报告"""
+    
+    vehicle_stats = analytics_crud.get_vehicle_repair_stats(db)
+    cost_trends_data = analytics_crud.get_cost_trends(db, period=cost_period)
+    negative_feedback = analytics_crud.get_negative_feedback_cases(db)
+    task_distribution = analytics_crud.get_worker_task_distribution(db)
+    unfinished_stats = analytics_crud.get_unfinished_order_stats(db)
+
+    # The `period` in cost_trends is now a pre-formatted string from the database.
+    # No further formatting is needed.
+    
+    return ComprehensiveAnalyticsResponse(
+        vehicle_repair_stats=vehicle_stats,
+        cost_trends=cost_trends_data,
+        negative_feedback_cases=negative_feedback,
+        worker_task_distribution=task_distribution,
+        unfinished_order_stats=unfinished_stats,
+    ) 
