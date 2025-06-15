@@ -1,8 +1,9 @@
 from pydantic import Field
-from typing import Optional
+from typing import Optional, List
 from datetime import date
 from app.schemas.base import BaseResponse, BaseSchema
 from app.models.vehicle import VehicleStatus
+from .user import UserResponse
 
 
 class VehicleBase(BaseSchema):
@@ -14,6 +15,10 @@ class VehicleBase(BaseSchema):
     color: Optional[str] = Field(None, max_length=50, description="颜色")
     mileage: Optional[int] = Field(None, ge=0, description="里程数")
     purchase_date: Optional[date] = Field(None, description="购买日期")
+    status: VehicleStatus
+
+    class Config:
+        orm_mode = True
 
 
 class VehicleCreate(VehicleBase):
@@ -33,6 +38,7 @@ class VehicleUpdate(BaseSchema):
 
 
 class VehicleResponse(BaseResponse):
+    id: int
     user_id: int
     license_plate: str
     vin: str
@@ -43,6 +49,10 @@ class VehicleResponse(BaseResponse):
     mileage: Optional[int]
     purchase_date: Optional[date]
     status: VehicleStatus
+    owner: Optional[UserResponse] = None
+
+    class Config:
+        orm_mode = True
 
 
 class OwnerInfo(BaseSchema):
@@ -56,4 +66,7 @@ class OwnerInfo(BaseSchema):
 
 class VehicleDetail(VehicleResponse):
     """车辆详细信息，包含车主信息"""
-    owner: OwnerInfo = Field(..., description="车主信息") 
+    owner: OwnerInfo = Field(..., description="车主信息")
+
+    class Config:
+        orm_mode = True 

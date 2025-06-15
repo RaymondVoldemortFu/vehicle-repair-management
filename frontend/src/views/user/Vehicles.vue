@@ -185,7 +185,14 @@ const handleAdd = () => {
 // 编辑车辆
 const handleEdit = (row) => {
   dialogTitle.value = '编辑车辆'
-  Object.assign(form, row)
+  form.id = row.id
+  form.license_plate = row.license_plate
+  form.vin = row.vin
+  form.manufacturer = row.manufacturer
+  form.model = row.model
+  form.year = row.year
+  form.color = row.color
+  form.mileage = row.mileage
   dialogVisible.value = true
 }
 

@@ -45,15 +45,10 @@ class RepairOrder(BaseModel):
     user = relationship("User", back_populates="repair_orders")
     vehicle = relationship("Vehicle", back_populates="repair_orders")
     admin = relationship("Admin", back_populates="managed_orders")
-    order_workers = relationship("RepairOrderWorker", back_populates="order", cascade="all, delete-orphan")
+    assigned_workers = relationship("RepairOrderWorker", back_populates="order", cascade="all, delete-orphan")
     order_services = relationship("RepairOrderService", back_populates="order", cascade="all, delete-orphan")
     repair_materials = relationship("RepairMaterial", back_populates="order", cascade="all, delete-orphan")
     feedback = relationship("Feedback", back_populates="order", uselist=False, cascade="all, delete-orphan")
-    assigned_workers = relationship(
-        "RepairWorker",
-        secondary="repair_order_workers",
-        back_populates="assigned_orders"
-    )
 
     def __repr__(self):
         return f"<RepairOrder(id={self.id}, order_number='{self.order_number}', status='{self.status}')>"

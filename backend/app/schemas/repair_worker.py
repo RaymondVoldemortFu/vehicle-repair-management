@@ -76,4 +76,12 @@ class PasswordChange(BaseSchema):
 class WorkerSkillUpdate(BaseSchema):
     skill_type: SkillType = Field(..., description="技能类型")
     skill_level: Optional[SkillLevel] = Field(None, description="技能等级")
-    certification: Optional[str] = Field(None, description="认证信息") 
+    certification: Optional[str] = Field(None, description="认证信息")
+
+
+class RepairWorkerBasic(BaseModel):
+    id: int
+    name: str
+
+    class Config:
+        orm_mode = True 

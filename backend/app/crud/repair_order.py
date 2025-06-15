@@ -1,7 +1,7 @@
 from typing import Optional, List
 from datetime import datetime
 from decimal import Decimal
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import and_, or_, func
 from app.crud.base import CRUDBase
 from app.models.repair_order import RepairOrder, OrderStatus
@@ -172,33 +172,35 @@ class CRUDRepairOrder(CRUDBase[RepairOrder, RepairOrderCreate, RepairOrderUpdate
         """获取包含详细信息的维修订单"""
         return db.query(RepairOrder).options(
             joinedload(RepairOrder.vehicle),
-            joinedload(RepairOrder.user)
+            joinedload(RepairOrder.user),
+            selectinload(RepairOrder.assigned_workers).selectinload(RepairOrderWorker.worker)
         ).filter(
             and_(RepairOrder.id == id, RepairOrder.is_deleted == False)
         ).first()
 
     def get_by_user_with_details(self, db: Session, *, user_id: int, skip: int = 0, limit: int = 100) -> List[RepairOrder]:
-        """获取用户的维修订单（包含车辆详情）"""
+        """获取用户的维修订单（包含车辆和工人详情）"""
         return db.query(RepairOrder).options(
             joinedload(RepairOrder.vehicle),
-            joinedload(RepairOrder.user)
+            joinedload(RepairOrder.user),
+            selectinload(RepairOrder.assigned_workers).selectinload(RepairOrderWorker.worker)
         ).filter(
             and_(RepairOrder.user_id == user_id, RepairOrder.is_deleted == False)
-        ).offset(skip).limit(limit).all()
+        ).order_by(RepairOrder.create_time.desc()).offset(skip).limit(limit).all()
 
     def get_by_worker_with_details(self, db: Session, *, worker_id: int, skip: int = 0, limit: int = 100) -> (List[RepairOrder], int):
         """获取分配给维修工人的维修订单（包含详细信息）"""
         query = db.query(RepairOrder).join(
             RepairOrder.assigned_workers
         ).filter(
-            RepairWorker.id == worker_id,
+            RepairOrderWorker.worker_id == worker_id,
             RepairOrder.is_deleted == False
         )
         total = query.count()
         orders = query.options(
             joinedload(RepairOrder.vehicle),
             joinedload(RepairOrder.user)
-        ).offset(skip).limit(limit).all()
+        ).order_by(RepairOrder.create_time.desc()).offset(skip).limit(limit).all()
         return orders, total
 
     def count_by_status(self, db: Session, *, status: OrderStatus) -> int:

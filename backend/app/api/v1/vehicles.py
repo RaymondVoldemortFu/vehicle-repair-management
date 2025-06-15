@@ -29,10 +29,7 @@ def create_vehicle(
         )
     
     # 设置车辆所有者为当前用户
-    vehicle_data = vehicle_in.dict()
-    vehicle_data["owner_id"] = current_user.id
-    
-    vehicle = vehicle_crud.create(db, obj_in=vehicle_data)
+    vehicle = vehicle_crud.create(db, obj_in=vehicle_in, user_id=current_user.id)
     return vehicle
 
 
@@ -42,7 +39,7 @@ def read_my_vehicles(
     current_user: User = Depends(get_current_active_user),
 ) -> Any:
     """获取当前用户的车辆列表"""
-    vehicles = vehicle_crud.get_by_owner(db, owner_id=current_user.id)
+    vehicles = vehicle_crud.get_by_user(db, user_id=current_user.id)
     return vehicles
 
 
@@ -88,7 +85,7 @@ def update_vehicle(
         )
     
     # 验证用户只能更新自己的车辆
-    if vehicle.owner_id != current_user.id:
+    if vehicle.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="无权修改此车辆"
@@ -123,7 +120,7 @@ def delete_vehicle(
         )
     
     # 验证用户只能删除自己的车辆
-    if vehicle.owner_id != current_user.id:
+    if vehicle.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="无权删除此车辆"

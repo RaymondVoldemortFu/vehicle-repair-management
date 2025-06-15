@@ -34,9 +34,8 @@
             <el-form-item label="状态">
               <el-select v-model="searchForm.status_filter" placeholder="处理状态" clearable @change="handleSearch">
                 <el-option label="待处理" value="pending" />
-                <el-option label="处理中" value="in_progress" />
-                <el-option label="已解决" value="resolved" />
-                <el-option label="已关闭" value="closed" />
+                <el-option label="已采纳" value="published" />
+                <el-option label="已拒绝" value="rejected" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -107,9 +106,9 @@
         </el-form-item>
         <el-form-item label="处理状态" prop="status">
           <el-select v-model="form.status" placeholder="选择状态" style="width: 100%">
-            <el-option label="处理中" value="in_progress" />
-            <el-option label="已解决" value="resolved" />
-            <el-option label="已关闭" value="closed" />
+            <el-option label="待处理" value="pending" />
+            <el-option label="采纳/发布" value="published" />
+            <el-option label="拒绝" value="rejected" />
           </el-select>
         </el-form-item>
         <el-form-item label="回复内容" prop="response">
@@ -275,13 +274,21 @@ const getTypeTagType = (type) => {
 }
 
 const getStatusName = (status) => {
-  const map = { pending: '待处理', in_progress: '处理中', resolved: '已解决', closed: '已关闭' }
-  return map[status] || status
+  const statusMap = {
+    pending: '待处理',
+    published: '已采纳',
+    rejected: '已拒绝'
+  }
+  return statusMap[status] || '未知'
 }
 
 const getStatusTagType = (status) => {
-  const map = { pending: 'warning', in_progress: 'primary', resolved: 'success', closed: 'info' }
-  return map[status] || 'info'
+  const typeMap = {
+    pending: 'warning',
+    published: 'success',
+    rejected: 'info'
+  }
+  return typeMap[status] || ''
 }
 
 onMounted(() => {

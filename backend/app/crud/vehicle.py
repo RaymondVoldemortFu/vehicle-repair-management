@@ -1,5 +1,5 @@
 from typing import Optional, List, Dict, Any
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, func
 from app.crud.base import CRUDBase
 from app.models.vehicle import Vehicle
@@ -13,10 +13,10 @@ class CRUDVehicle(CRUDBase[Vehicle, VehicleCreate, VehicleUpdate]):
             and_(Vehicle.license_plate == license_plate, Vehicle.is_deleted == False)
         ).first()
 
-    def get_by_owner(self, db: Session, *, owner_id: int) -> List[Vehicle]:
-        """根据车主ID获取车辆列表"""
+    def get_by_user(self, db: Session, *, user_id: int) -> List[Vehicle]:
+        """根据用户ID获取车辆"""
         return db.query(Vehicle).filter(
-            and_(Vehicle.user_id == owner_id, Vehicle.is_deleted == False)
+            and_(Vehicle.user_id == user_id, Vehicle.is_deleted == False)
         ).all()
 
     def get_by_vin(self, db: Session, *, vin: str) -> Optional[Vehicle]:
@@ -35,6 +35,12 @@ class CRUDVehicle(CRUDBase[Vehicle, VehicleCreate, VehicleUpdate]):
         ).group_by(Vehicle.manufacturer).all()
 
         return [{"manufacturer": row.manufacturer, "count": row.count} for row in result]
+
+    def get_multi(self, db: Session, *, skip: int = 0, limit: int = 100) -> List[Vehicle]:
+        """获取多个车辆，并预加载车主信息"""
+        return db.query(self.model).options(
+            joinedload(self.model.owner)
+        ).order_by(self.model.id.desc()).offset(skip).limit(limit).all()
 
     def create(self, db: Session, *, obj_in: Dict[str, Any]) -> Vehicle:
         """创建车辆"""

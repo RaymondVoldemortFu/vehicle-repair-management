@@ -44,11 +44,6 @@ class RepairWorker(BaseModel):
     hashed_password = Column(String(255), nullable=False, comment="密码哈希")
 
     # 关系
-    assigned_orders = relationship(
-        "RepairOrder",
-        secondary="repair_order_workers",
-        back_populates="assigned_workers"
-    )
     order_assignments = relationship("RepairOrderWorker", back_populates="worker")
     wages = relationship("Wage", back_populates="worker")
 

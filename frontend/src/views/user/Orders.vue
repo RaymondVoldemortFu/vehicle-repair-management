@@ -53,7 +53,14 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="worker_name" label="维修工人" width="120" />
+        <el-table-column label="维修技师" width="120">
+          <template #default="{ row }">
+            <span v-if="row.assigned_workers && row.assigned_workers.length > 0">
+              {{ row.assigned_workers.map(w => w.worker.name).join(', ') }}
+            </span>
+            <span v-else>待分配</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="estimated_cost" label="预估费用" width="100">
           <template #default="{ row }">
             <span v-if="row.estimated_cost">¥{{ row.estimated_cost }}</span>
@@ -164,7 +171,12 @@
         <el-descriptions-item label="车辆信息">
           {{ currentOrder.vehicle?.license_plate }} - {{ currentOrder.vehicle?.manufacturer }} {{ currentOrder.vehicle?.model }}
         </el-descriptions-item>
-        <el-descriptions-item label="维修工人">{{ currentOrder.worker_name || '未分配' }}</el-descriptions-item>
+        <el-descriptions-item label="维修工人">
+          <span v-if="currentOrder.assigned_workers && currentOrder.assigned_workers.length > 0">
+            {{ currentOrder.assigned_workers.map(w => w.worker.name).join(', ') }}
+          </span>
+          <span v-else>待分配</span>
+        </el-descriptions-item>
         <el-descriptions-item label="预估费用">
           {{ currentOrder.estimated_cost ? `¥${currentOrder.estimated_cost}` : '待评估' }}
         </el-descriptions-item>

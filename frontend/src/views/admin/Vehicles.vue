@@ -28,13 +28,20 @@
 
     <div class="card-container">
       <el-table v-loading="loading" :data="tableData" stripe>
-        <el-table-column prop="id" label="ID" width="80" />
+        <el-table-column prop="id" label="ID" width="60" />
+        <el-table-column label="车主" width="180">
+          <template #default="{ row }">
+            <div v-if="row.owner">
+              <div>{{ row.owner.username }}</div>
+              <div style="font-size: 12px; color: #909399;">{{ row.owner.phone }}</div>
+            </div>
+            <span v-else>未知</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="license_plate" label="车牌号" width="120" />
-        <el-table-column prop="vin" label="车架号" width="180" />
+        <el-table-column prop="manufacturer" label="品牌" width="120" />
         <el-table-column prop="model" label="车型" width="150" />
-        <el-table-column prop="manufacturer" label="品牌" width="100" />
         <el-table-column prop="year" label="年份" width="80" />
-        <el-table-column prop="owner_name" label="车主" width="120" />
         <el-table-column prop="mileage" label="里程(km)" width="100" />
         <el-table-column prop="created_at" label="登记时间" width="150">
           <template #default="{ row }">
@@ -81,26 +88,6 @@
         <el-descriptions-item label="车主">{{ currentVehicle.owner?.name }}</el-descriptions-item>
         <el-descriptions-item label="登记时间">{{ formatDate(currentVehicle.created_at) }}</el-descriptions-item>
       </el-descriptions>
-      
-      <div style="margin-top: 20px;">
-        <h4>维修历史</h4>
-        <el-table :data="currentVehicle.repair_orders || []" size="small">
-          <el-table-column prop="order_number" label="订单号" width="120" />
-          <el-table-column prop="description" label="维修内容" show-overflow-tooltip />
-          <el-table-column prop="status" label="状态" width="100">
-            <template #default="{ row }">
-              <el-tag size="small" :type="getOrderStatusType(row.status)">
-                {{ getOrderStatusText(row.status) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="create_time" label="创建时间" width="150">
-            <template #default="{ row }">
-              {{ formatDate(row.create_time) }}
-            </template>
-          </el-table-column>
-        </el-table>
-      </div>
     </el-dialog>
 
     <!-- 编辑车辆对话框 -->

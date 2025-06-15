@@ -24,7 +24,7 @@ class RepairOrderWorker(BaseModel):
     work_description = Column(Text, nullable=True, comment="工作描述")
 
     # 关系
-    order = relationship("RepairOrder", back_populates="order_workers")
+    order = relationship("RepairOrder", back_populates="assigned_workers")
     worker = relationship("RepairWorker", back_populates="order_assignments")
 
     def __repr__(self):
