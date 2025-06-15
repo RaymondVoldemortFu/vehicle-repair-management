@@ -4,16 +4,21 @@ from datetime import date
 from decimal import Decimal
 
 from app.models.wage import WageStatus
+from app.schemas.repair_worker import RepairWorker
 
 # Shared properties
 class WageBase(BaseModel):
-    pay_period: str = Field(..., pattern=r"^\d{4}-\d{2}$", description="支付周期 (YYYY-MM)")
-    total_hours: Optional[Decimal] = Field(None, ge=0, description="总工时")
-    base_salary: Optional[Decimal] = Field(None, ge=0, description="基本工资")
-    overtime_pay: Optional[Decimal] = Field(None, ge=0, description="加班费")
-    bonus: Optional[Decimal] = Field(None, ge=0, description="奖金")
-    total_payment: Optional[Decimal] = Field(None, ge=0, description="总支付")
-    status: Optional[WageStatus] = WageStatus.CALCULATED
+    period: str = Field(..., pattern=r"^\d{4}-\d{2}$", description="工资周期 (YYYY-MM)")
+    base_salary: Decimal = Field(..., ge=0, description="基本工资")
+    work_days: int = Field(..., ge=0, description="工作天数")
+    overtime_hours: Decimal = Field(..., ge=0, description="加班工时")
+    overtime_pay: Decimal = Field(..., ge=0, description="加班费")
+    commission: Decimal = Field(..., ge=0, description="提成")
+    bonus: Decimal = Field(..., ge=0, description="奖金")
+    deductions: Decimal = Field(..., ge=0, description="扣款")
+    total_amount: Decimal = Field(..., ge=0, description="总支付金额")
+    status: WageStatus = WageStatus.PENDING
+    notes: Optional[str] = None
 
 # Properties to receive on item creation
 class WageCreate(WageBase):
@@ -38,6 +43,10 @@ class WageInDBBase(WageBase):
 # Properties to return to client
 class Wage(WageInDBBase):
     pass
+
+
+class WageWithWorker(Wage):
+    worker: RepairWorker
 
 
 # Properties properties stored in DB

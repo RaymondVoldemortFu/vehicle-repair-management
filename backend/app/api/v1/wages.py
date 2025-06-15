@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import datetime, date
@@ -8,6 +8,11 @@ from app.config.database import get_db
 from app.core.deps import get_current_active_admin, get_current_active_worker
 from app.models.admin import Admin
 from app.models.repair_worker import RepairWorker
+from app.models.wage import WageStatus
+from app.schemas.wage import Wage, WageCreate, WageUpdate, WageWithWorker
+from app.schemas.repair_worker import RepairWorker as RepairWorkerSchema
+from app.crud import wage as wage_crud
+from app.crud.repair_worker import repair_worker_crud
 from app.schemas.base import MessageResponse, PaginationParams, PaginatedResponse
 
 router = APIRouter()
@@ -152,38 +157,46 @@ def get_my_wage_summary(
 
 
 # 管理员专用接口
-@router.get("/admin/all", response_model=List[dict])
-def read_all_wages_admin(
+@router.get("/", response_model=PaginatedResponse[WageWithWorker])
+def read_wages(
     db: Session = Depends(get_db),
-    year: int = None,
-    month: int = None,
-    status: str = None,
+    skip: int = 0,
+    limit: int = 20,
+    keyword: Optional[str] = None,
+    status: Optional[WageStatus] = None,
+    month: Optional[str] = None, # YYYY-MM
+    min_amount: Optional[Decimal] = None,
     current_admin: Admin = Depends(get_current_active_admin),
 ) -> Any:
-    """获取所有工资记录（管理员专用）"""
-    wages = MOCK_WAGES.copy()
-    
-    if year:
-        wages = [w for w in wages if w["year"] == year]
-    
-    if month:
-        wages = [w for w in wages if w["month"] == month]
-    
-    if status:
-        wages = [w for w in wages if w["status"] == status]
-    
-    return wages
+    """
+    获取工资列表（管理员专用），带筛选和分页
+    """
+    result = wage_crud.wage.get_multi_with_filter(
+        db,
+        skip=skip,
+        limit=limit,
+        keyword=keyword,
+        status=status,
+        month=month,
+        min_amount=min_amount
+    )
+    return PaginatedResponse(
+        total=result["total"],
+        skip=skip,
+        limit=limit,
+        data=result["wages"]
+    )
 
-
-@router.get("/admin/pending", response_model=List[dict])
-def read_pending_wages(
+@router.get("/workers", response_model=List[RepairWorkerSchema])
+def read_all_workers(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_active_admin),
 ) -> Any:
-    """获取待支付的工资（管理员专用）"""
-    pending_wages = [w for w in MOCK_WAGES if w["status"] == "pending"]
-    return pending_wages
-
+    """
+    获取所有工人列表（用于下拉选择）
+    """
+    workers = repair_worker_crud.get_multi(db, limit=1000)
+    return workers
 
 @router.post("/admin/", response_model=dict)
 def create_wage_record(
