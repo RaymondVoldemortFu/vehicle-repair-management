@@ -16,6 +16,7 @@ from app.models.admin import AdminRole, AdminStatus
 from app.config.settings import settings
 from app.config.logging import get_database_logger
 from app.core.security import get_password_hash
+from app.db.init_data import init_materials
 
 logger = get_database_logger()
 
@@ -301,29 +302,40 @@ def create_default_super_admin():
 
 
 def init_database():
-    """初始化数据库"""
-    logger.info("开始初始化数据库...")
-    
+    """初始化数据库、表和默认数据"""
     try:
-        # 创建数据库（如果不存在）
+        # 1. 创建数据库（如果需要）
         create_database_if_not_exists()
         
-        # 创建表
+        # 2. 创建所有表
         create_tables()
         
-        # 添加/更新字段
+        # 3. 数据迁移/结构更新（如果需要）
         add_username_column()
         update_phone_column()
         add_missing_repair_order_columns()
-        
-        # 创建默认超级管理员
-        create_default_super_admin()
-        
-        logger.info("数据库初始化完成")
-        
+
+        # 4. 初始化基础数据
+        db = SessionLocal()
+        try:
+            create_default_super_admin()
+            # 在这里添加其他数据初始化函数
+            init_materials(db)
+            db.commit()
+            logger.info("默认数据初始化完成")
+        except Exception as e:
+            logger.error(f"初始化默认数据时发生错误: {str(e)}")
+            db.rollback()
+            raise
+        finally:
+            db.close()
+            
+        logger.info("数据库初始化流程完成")
+        return True
+
     except Exception as e:
-        logger.error(f"数据库初始化失败: {str(e)}")
-        raise
+        logger.error(f"数据库初始化流程失败: {str(e)}")
+        return False
 
 
 def init_database_on_startup():

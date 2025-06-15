@@ -7,8 +7,10 @@ from app.crud.base import CRUDBase
 from app.models.repair_order import RepairOrder, OrderStatus
 from app.models.repair_worker import RepairWorker, WorkerStatus
 from app.models.repair_order_worker import RepairOrderWorker
+from app.models.material import Material
+from app.models.repair_material import RepairMaterial
 from app.models.wage import Wage
-from app.schemas.repair_order import RepairOrderCreate, RepairOrderUpdate, WorkCompletionUpdate
+from app.schemas.repair_order import RepairOrderCreate, RepairOrderUpdate, RepairOrderComplete, WorkCompletionUpdate
 import random
 
 # 加班费率
@@ -173,7 +175,8 @@ class CRUDRepairOrder(CRUDBase[RepairOrder, RepairOrderCreate, RepairOrderUpdate
         return db.query(RepairOrder).options(
             joinedload(RepairOrder.vehicle),
             joinedload(RepairOrder.user),
-            selectinload(RepairOrder.assigned_workers).selectinload(RepairOrderWorker.worker)
+            selectinload(RepairOrder.assigned_workers).selectinload(RepairOrderWorker.worker),
+            selectinload(RepairOrder.repair_materials).joinedload(RepairMaterial.material)
         ).filter(
             and_(RepairOrder.id == id, RepairOrder.is_deleted == False)
         ).first()
@@ -282,80 +285,61 @@ class CRUDRepairOrder(CRUDBase[RepairOrder, RepairOrderCreate, RepairOrderUpdate
         db.refresh(order)
         return order
 
-    def complete_order_and_log_work(
-        self, db: Session, *, order_id: int, worker_id: int, work_log: WorkCompletionUpdate
-    ) -> Optional[RepairOrder]:
+    def complete_order(
+        self, db: Session, *, order: RepairOrder, completion_data: RepairOrderComplete, worker_id: int
+    ) -> RepairOrder:
         """
-        完成订单，记录工时，并计算更新工资
+        工人完成订单，记录使用的材料，并计算最终费用。
         """
-        # 1. 验证订单和分配记录
+        # 1. 验证订单状态和工人权限
+        if order.status != OrderStatus.IN_PROGRESS:
+            raise ValueError("订单状态不正确，无法完成。")
+
         assignment = db.query(RepairOrderWorker).filter(
-            RepairOrderWorker.order_id == order_id,
+            RepairOrderWorker.order_id == order.id,
             RepairOrderWorker.worker_id == worker_id
         ).first()
 
         if not assignment:
-            raise ValueError("该维修工未被分配此订单")
+            raise ValueError("无权操作此订单。")
 
-        order = self.get(db, id=order_id)
-        if not order:
-            raise ValueError("订单不存在")
-        if order.status != OrderStatus.IN_PROGRESS:
-            raise ValueError("订单当前状态无法完成")
+        # 2. 计算材料成本并创建关联记录
+        total_material_cost = Decimal("0.0")
+        for used_material in completion_data.used_materials:
+            material = db.query(Material).filter(Material.id == used_material.material_id).first()
+            if not material:
+                raise ValueError(f"ID为 {used_material.material_id} 的材料不存在。")
+            
+            if material.stock < used_material.quantity:
+                raise ValueError(f"材料 '{material.name}' 库存不足 (需要: {used_material.quantity}, 当前: {material.stock})。")
 
-        worker = db.query(RepairWorker).filter(RepairWorker.id == worker_id).first()
-        if not worker:
-            raise ValueError("维修工不存在")
+            # 创建关联记录
+            repair_material_entry = RepairMaterial(
+                order_id=order.id,
+                material_id=material.id,
+                quantity=used_material.quantity,
+                price_at_consumption=material.price # 记录消耗时的单价
+            )
+            db.add(repair_material_entry)
+            
+            # 累加成本并更新库存
+            total_material_cost += material.price * used_material.quantity
+            material.stock -= used_material.quantity
+            db.add(material)
 
-        # 2. 计算本次工作收入
-        regular_hours = Decimal(str(work_log.work_hours)) - Decimal(str(work_log.overtime_hours))
-        
-        regular_pay = regular_hours * worker.hourly_rate
-        overtime_pay = Decimal(str(work_log.overtime_hours)) * worker.hourly_rate * OVERTIME_RATE_MULTIPLIER
-        total_payment_for_assignment = regular_pay + overtime_pay
+        # 3. 计算人工成本
+        hourly_rate = assignment.hourly_rate or Decimal("0.0")
+        total_labor_cost = hourly_rate * Decimal(str(completion_data.work_hours))
 
-        # 3. 更新分配记录(repair_order_workers)
-        assignment.work_hours = Decimal(str(work_log.work_hours))
-        assignment.total_payment = total_payment_for_assignment
-        assignment.work_description = work_log.work_description
-        assignment.status = 'completed'
-        assignment.end_time = datetime.utcnow()
-        db.add(assignment)
-
-        # 4. 更新主订单状态
+        # 4. 更新订单主信息
         order.status = OrderStatus.COMPLETED
         order.actual_completion_time = datetime.utcnow()
-        db.add(order)
-        
-        # 5. 更新或创建当月工资单(wages)
-        pay_period = datetime.now().strftime('%Y-%m')
-        wage = db.query(Wage).filter(
-            Wage.worker_id == worker.id,
-            Wage.period == pay_period
-        ).first()
-        
-        if not wage:
-            wage = Wage(
-                worker_id=worker.id,
-                period=pay_period,
-            )
-            db.add(wage)
-            db.flush() # flush to get wage object initialized
+        order.total_material_cost = total_material_cost
+        order.total_labor_cost = total_labor_cost
+        order.total_cost = total_labor_cost + total_material_cost # 简单加和，可根据业务扩展
+        order.internal_notes = (order.internal_notes or "") + "\n[工作描述] " + (completion_data.work_description or "无")
 
-        # 将本次工作产生的收入记为提成，并累加加班时长
-        wage.commission = (wage.commission or 0) + total_payment_for_assignment
-        wage.overtime_hours = (wage.overtime_hours or 0) + Decimal(str(work_log.overtime_hours))
-        
-        # 重新计算总金额
-        wage.total_amount = (
-            (wage.base_salary or 0) +
-            (wage.overtime_pay or 0) +
-            (wage.commission or 0) +
-            (wage.bonus or 0) -
-            (wage.deductions or 0)
-        )
-        
-        db.add(wage)
+        db.add(order)
         db.commit()
         db.refresh(order)
         return order

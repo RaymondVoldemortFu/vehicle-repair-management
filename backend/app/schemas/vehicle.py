@@ -66,7 +66,7 @@ class OwnerInfo(BaseSchema):
 
 class VehicleDetail(VehicleResponse):
     """车辆详细信息，包含车主信息"""
-    owner: OwnerInfo = Field(..., description="车主信息")
+    owner: OwnerInfo = Field(..., description="车主信息") 
 
     class Config:
         orm_mode = True 

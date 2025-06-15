@@ -145,17 +145,51 @@
     </el-dialog>
 
     <!-- 完成维修对话框 -->
-    <el-dialog v-model="completionDialogVisible" title="完成维修与工时记录" width="500px">
+    <el-dialog v-model="completionDialogVisible" title="完成维修与材料登记" width="600px" @close="resetCompletionForm">
       <el-form ref="completionFormRef" :model="completionForm" :rules="completionFormRules" label-width="100px">
         <el-form-item label="总工时" prop="work_hours">
-          <el-input-number v-model="completionForm.work_hours" :min="0" :precision="2" controls-position="right" style="width: 100%;" />
-        </el-form-item>
-        <el-form-item label="加班工时" prop="overtime_hours">
-          <el-input-number v-model="completionForm.overtime_hours" :min="0" :precision="2" controls-position="right" style="width: 100%;" />
+          <el-input-number v-model="completionForm.work_hours" :min="0.5" :precision="2" :step="0.5" controls-position="right" style="width: 100%;" />
         </el-form-item>
         <el-form-item label="工作描述" prop="work_description">
           <el-input v-model="completionForm.work_description" type="textarea" :rows="3" placeholder="请输入本次维修工作的详细内容" />
         </el-form-item>
+        
+        <el-divider>使用材料</el-divider>
+
+        <div v-for="(item, index) in completionForm.used_materials" :key="index" class="material-item">
+          <el-form-item 
+            :label="'材料 ' + (index + 1)"
+            :prop="'used_materials.' + index + '.material_id'"
+            :rules="{ required: true, message: '请选择材料', trigger: 'change' }"
+          >
+            <el-select
+              v-model="item.material_id"
+              placeholder="选择或搜索材料"
+              filterable
+              style="width: 100%;"
+            >
+              <el-option
+                v-for="material in allMaterials"
+                :key="material.id"
+                :label="`${material.name} (库存: ${material.stock})`"
+                :value="material.id"
+              />
+            </el-select>
+          </el-form-item>
+           <el-form-item 
+            label-width="100px"
+            :prop="'used_materials.' + index + '.quantity'"
+            :rules="{ required: true, type: 'number', min: 1, message: '请输入有效数量', trigger: 'blur' }"
+          >
+             <el-input-number v-model="item.quantity" :min="1" placeholder="数量" style="width: 100%;"/>
+          </el-form-item>
+          <el-button type="danger" plain size="small" @click="removeMaterial(index)" class="remove-material-btn">移除</el-button>
+        </div>
+
+        <el-button type="primary" plain @click="addMaterial">
+          <el-icon><Plus /></el-icon>
+          添加材料
+        </el-button>
       </el-form>
       <template #footer>
         <el-button @click="completionDialogVisible = false">取消</el-button>
@@ -197,6 +231,7 @@
 import { ref, reactive, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { getWorkerOrders, updateWorkerOrderStatus, getAvailableOrders, acceptOrder, rejectOrder, completeOrder } from '@/api/repairOrder';
+import request from '@/utils/request';
 
 const loading = ref(true);
 const showDetailDialog = ref(false);
@@ -226,15 +261,19 @@ const pagination = reactive({
 const completionDialogVisible = ref(false);
 const completionFormRef = ref(null);
 const activeOrder = ref(null);
+const allMaterials = ref([]);
 
-const completionForm = reactive({
-  work_hours: 0,
-  overtime_hours: 0,
+const getInitialCompletionForm = () => ({
+  work_hours: 1,
   work_description: '',
+  used_materials: [],
 });
+
+const completionForm = reactive(getInitialCompletionForm());
 
 const completionFormRules = {
   work_hours: [{ required: true, message: '请输入总工时', trigger: 'blur' }],
+  work_description: [{ required: true, message: '请输入工作描述', trigger: 'blur' }],
 };
 
 const fetchData = async () => {
@@ -247,9 +286,9 @@ const fetchData = async () => {
       status: searchForm.status,
     };
     const filteredParams = Object.fromEntries(Object.entries(params).filter(([_, v]) => v !== null && v !== ''));
-    const response = await getWorkerOrders(filteredParams);
-    orders.value = response.items || [];
-    pagination.total = response.total || 0;
+    const response = await request.get('/repair-orders/worker-orders', { params: filteredParams });
+    orders.value = response.items;
+    pagination.total = response.total;
   } catch (error) {
     console.error('获取订单列表失败:', error);
     ElMessage.error('获取订单列表失败');
@@ -322,13 +361,10 @@ const openAvailableOrdersDialog = () => {
 const fetchAvailableOrders = async () => {
   availableLoading.value = true;
   try {
-    const params = {
-      page: availablePagination.page,
-      size: availablePagination.size,
-    };
-    const response = await getAvailableOrders(params);
-    availableOrders.value = response.items || [];
-    availablePagination.total = response.total || 0;
+    const params = { page: availablePagination.page, size: availablePagination.size };
+    const response = await request.get('/repair-orders/available', { params });
+    availableOrders.value = response.items;
+    availablePagination.total = response.total;
   } catch (error) {
     console.error('获取可接订单失败:', error);
     ElMessage.error('获取可接订单失败');
@@ -339,47 +375,63 @@ const fetchAvailableOrders = async () => {
 
 const handleAcceptOrder = async (orderId) => {
   try {
-    await ElMessageBox.confirm('确定要接受这个维修订单吗？', '确认接单', {
-      type: 'info',
-    });
-    await acceptOrder(orderId);
-    ElMessage.success('接单成功！');
-    availableOrdersDialogVisible.value = false;
+    await request.post(`/repair-orders/${orderId}/accept`);
+    ElMessage.success('接单成功');
+    fetchAvailableOrders(); // 刷新可接订单列表
     fetchData(); // 刷新我的订单列表
   } catch (error) {
-    if (error !== 'cancel') {
-      console.error('接单失败:', error);
-      ElMessage.error(error.response?.data?.detail || '接单失败');
-    }
+    ElMessage.error(error.response?.data?.detail || '接单失败');
   }
 };
 
-const handleReject = async (order) => {
-  try {
-    await ElMessageBox.confirm('您确定要拒绝此订单吗？该订单将退回到待分配列表。', '确认拒绝', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning',
-    });
-    await rejectOrder(order.id);
-    ElMessage.success('订单已成功拒绝');
-    fetchData(); // Refresh the list
-  } catch (error) {
-    if (error !== 'cancel') {
-      console.error('拒绝订单失败:', error);
-      ElMessage.error('拒绝订单失败');
+const handleReject = (order) => {
+  ElMessageBox.confirm(`确定要拒绝订单 ${order.order_number} 吗？`, '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning',
+  }).then(async () => {
+    try {
+      await request.put(`/repair-orders/${order.id}/reject`);
+      ElMessage.success('订单已拒绝');
+      fetchData();
+    } catch (error) {
+      ElMessage.error(error.response?.data?.detail || '操作失败');
     }
+  });
+};
+
+const fetchAllMaterials = async () => {
+  try {
+    const response = await request.get('/materials/');
+    allMaterials.value = response.items;
+  } catch (error) {
+    ElMessage.error('获取材料列表失败');
+    console.error(error);
   }
+};
+
+const addMaterial = () => {
+  completionForm.used_materials.push({
+    material_id: null,
+    quantity: 1,
+  });
+};
+
+const removeMaterial = (index) => {
+  completionForm.used_materials.splice(index, 1);
+};
+
+const resetCompletionForm = () => {
+  Object.assign(completionForm, getInitialCompletionForm());
+  completionFormRef.value?.resetFields();
 };
 
 const openCompletionDialog = (order) => {
+  resetCompletionForm();
   activeOrder.value = order;
-  // Reset form
-  Object.assign(completionForm, {
-    work_hours: 0,
-    overtime_hours: 0,
-    work_description: '',
-  });
+  if (allMaterials.value.length === 0) {
+    fetchAllMaterials();
+  }
   completionDialogVisible.value = true;
 };
 
@@ -388,13 +440,21 @@ const submitCompletionForm = async () => {
   await completionFormRef.value.validate(async (valid) => {
     if (valid) {
       try {
-        await completeOrder(activeOrder.value.id, completionForm);
-        ElMessage.success('工时记录提交成功，订单已完成');
+        const payload = {
+          work_hours: completionForm.work_hours,
+          work_description: completionForm.work_description,
+          used_materials: completionForm.used_materials.map(item => ({
+            material_id: item.material_id,
+            quantity: item.quantity
+          }))
+        };
+        await request.post(`/repair-orders/worker-orders/${activeOrder.value.id}/complete`, payload);
+        ElMessage.success('订单已成功完成');
         completionDialogVisible.value = false;
         fetchData();
       } catch (error) {
-        console.error('完成订单失败:', error);
         ElMessage.error(error.response?.data?.detail || '操作失败');
+        console.error(error);
       }
     }
   });

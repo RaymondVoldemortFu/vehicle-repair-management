@@ -17,30 +17,30 @@
     <!-- 搜索和筛选 -->
     <el-card class="search-card">
       <el-form :model="searchForm" layout="inline">
-        <el-row :gutter="20">
-          <el-col :span="6">
+      <el-row :gutter="20">
+        <el-col :span="6">
             <el-form-item>
-              <el-input
-                v-model="searchForm.keyword"
+          <el-input
+            v-model="searchForm.keyword"
                 placeholder="搜索工人姓名或工号"
-                clearable
+            clearable
                 @keyup.enter="handleSearch"
-              >
-                <template #prefix>
-                  <el-icon><Search /></el-icon>
-                </template>
-              </el-input>
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
             </el-form-item>
-          </el-col>
+        </el-col>
           <el-col :span="5">
             <el-form-item>
-              <el-select v-model="searchForm.status" placeholder="工作状态" clearable @change="handleSearch">
-                <el-option label="在职" value="active" />
+          <el-select v-model="searchForm.status" placeholder="工作状态" clearable @change="handleSearch">
+            <el-option label="在职" value="active" />
                 <el-option label="休假" value="on_leave" />
-                <el-option label="离职" value="inactive" />
-              </el-select>
+            <el-option label="离职" value="inactive" />
+          </el-select>
             </el-form-item>
-          </el-col>
+        </el-col>
           <el-col :span="5">
              <el-form-item>
               <el-select v-model="searchForm.skill_type" placeholder="技能类型" clearable @change="handleSearch">
@@ -52,15 +52,15 @@
                 <el-option label="刹车" value="brake" />
                 <el-option label="悬挂" value="suspension" />
                 <el-option label="空调" value="air_conditioning" />
-              </el-select>
+          </el-select>
             </el-form-item>
-          </el-col>
+        </el-col>
           <el-col :span="8">
              <el-form-item>
-              <el-button @click="resetSearch">重置</el-button>
+          <el-button @click="resetSearch">重置</el-button>
             </el-form-item>
-          </el-col>
-        </el-row>
+        </el-col>
+      </el-row>
       </el-form>
     </el-card>
 
@@ -92,10 +92,10 @@
           </template>
         </el-table-column>
          <el-table-column prop="hourly_rate" label="时薪" width="100">
-           <template #default="{ row }">
+          <template #default="{ row }">
              ¥{{ row.hourly_rate }}
-           </template>
-         </el-table-column>
+          </template>
+        </el-table-column>
         <el-table-column prop="hire_date" label="入职日期" width="120" />
         <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
@@ -179,30 +179,30 @@
                 <el-option label="高级" value="senior" />
                 <el-option label="专家" value="expert" />
               </el-select>
-            </el-form-item>
+        </el-form-item>
           </el-col>
         </el-row>
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="入职日期" prop="hire_date">
-              <el-date-picker
+          <el-date-picker
                 v-model="workerForm.hire_date"
-                type="date"
-                placeholder="选择入职日期"
-                style="width: 100%"
+            type="date"
+            placeholder="选择入职日期"
+            style="width: 100%"
                 value-format="YYYY-MM-DD"
-              />
-            </el-form-item>
+          />
+        </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="时薪" prop="hourly_rate">
-              <el-input-number
+          <el-input-number
                 v-model="workerForm.hourly_rate"
-                :min="0"
-                :precision="2"
+            :min="0"
+            :precision="2"
                 placeholder="请输入时薪"
-                style="width: 100%"
-              />
+            style="width: 100%"
+          />
             </el-form-item>
           </el-col>
         </el-row>
@@ -375,25 +375,25 @@ const saveWorker = async () => {
           const { id, ...data } = workerForm
           await request.put(`/workers/${id}`, data)
           ElMessage.success('更新成功')
-        } else {
+    } else {
           // 创建
           await request.post('/workers/', workerForm)
           ElMessage.success('添加成功')
-        }
+    }
         dialogVisible.value = false
         fetchWorkers()
-      } catch (error) {
+  } catch (error) {
         console.error('保存工人失败:', error)
-      } finally {
-        saving.value = false
-      }
-    }
+  } finally {
+    saving.value = false
+  }
+}
   })
 }
 
 // 删除工人
 const handleDeleteWorker = async (row) => {
-  try {
+      try {
     await ElMessageBox.confirm(`确定要删除工人 ${row.name} 吗？`, '警告', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
@@ -401,12 +401,12 @@ const handleDeleteWorker = async (row) => {
     })
     
     await request.delete(`/workers/${row.id}`)
-    ElMessage.success('删除成功')
+        ElMessage.success('删除成功')
     fetchWorkers()
   } catch (error) {
     if (error !== 'cancel') {
       console.error('删除工人失败:', error)
-    }
+}
   }
 }
 
@@ -433,7 +433,7 @@ const getStatusName = (status) => {
 const getStatusTagType = (status) => {
   const map = { active: 'success', on_leave: 'warning', inactive: 'danger' }
   return map[status] || 'info'
-}
+  }
 
 onMounted(() => {
   fetchWorkers()
@@ -443,38 +443,38 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .workers-container {
-  .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
 
     h1 {
-      margin: 0;
+  margin: 0;
       font-size: 24px;
-    }
-    .page-description {
+}
+.page-description {
       color: #606266;
-      font-size: 14px;
+  font-size: 14px;
       margin-top: 4px;
-    }
-  }
+}
+}
 
   .search-card, .table-card {
-    margin-bottom: 20px;
-  }
-  
+  margin-bottom: 20px;
+}
+
   .el-form-item {
     margin-bottom: 0;
-  }
+}
 
-  .pagination-container {
-    display: flex;
+.pagination-container {
+  display: flex;
     justify-content: flex-end;
-    margin-top: 20px;
-  }
+  margin-top: 20px;
+}
 
-  .danger {
+.danger {
     color: var(--el-color-danger);
   }
 }

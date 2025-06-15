@@ -373,6 +373,7 @@ const handleView = async (row) => {
     detailDialogVisible.value = true
   } catch (error) {
     console.error('获取订单详情失败:', error)
+    ElMessage.error('获取订单详情失败')
   }
 }
 

@@ -13,9 +13,9 @@
               <span>基本信息</span>
               <div>
                 <el-button v-if="!editingBasicInfo" type="primary" size="small" @click="editingBasicInfo = true">编辑</el-button>
-                <div v-else>
-                  <el-button size="small" @click="cancelEditBasicInfo">取消</el-button>
-                  <el-button type="primary" size="small" @click="saveBasicInfo">保存</el-button>
+              <div v-else>
+                <el-button size="small" @click="cancelEditBasicInfo">取消</el-button>
+                <el-button type="primary" size="small" @click="saveBasicInfo">保存</el-button>
                 </div>
               </div>
             </div>
@@ -54,7 +54,7 @@
                   <el-input :value="profileForm.hire_date" disabled />
                 </el-form-item>
               </el-col>
-               <el-col :span="12">
+              <el-col :span="12">
                 <el-form-item label="状态">
                     <el-tag>{{ profileForm.status }}</el-tag>
                 </el-form-item>
@@ -169,7 +169,7 @@ const saveBasicInfo = async () => {
         ElMessage.success('个人信息更新成功');
         editingBasicInfo.value = false;
         fetchProfile(); // Re-fetch to get the latest data
-      } catch (error) {
+  } catch (error) {
         ElMessage.error('更新失败');
         console.error(error);
       }
@@ -188,7 +188,7 @@ const changePassword = async () => {
         });
         ElMessage.success('密码修改成功');
         passwordFormRef.value.resetFields();
-      } catch (error) {
+  } catch (error) {
         ElMessage.error(error.response?.data?.detail || '密码修改失败');
         console.error(error);
       }

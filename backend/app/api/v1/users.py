@@ -87,13 +87,13 @@ def change_password(
 @router.get("/me/stats", response_model=dict)
 def read_user_stats(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
-) -> Any:
+    current_user: User = Depends(get_current_active_user)
+):
     """获取当前用户统计信息"""
     # 获取用户的订单统计
     user_orders = repair_order_crud.get_by_user(db, user_id=current_user.id, skip=0, limit=1000)
     completed_orders = len([order for order in user_orders if order.status == 'completed'])
-    user_vehicles = vehicle_crud.get_by_owner(db, owner_id=current_user.id)
+    user_vehicles = vehicle_crud.get_by_user(db, user_id=current_user.id)
     
     return {
         "total_orders": len(user_orders),
@@ -177,7 +177,7 @@ def delete_user(
     
     user_crud.remove(db, id=user_id)
     return MessageResponse(message="用户删除成功")
-
+ 
 
 @router.put("/{user_id}/toggle-status", response_model=MessageResponse)
 def toggle_user_status(

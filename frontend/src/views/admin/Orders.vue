@@ -51,13 +51,26 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="worker_name" label="维修工人" width="120" />
+        <el-table-column label="维修工人" width="120">
+           <template #default="{ row }">
+            <span v-if="row.assigned_workers && row.assigned_workers.length > 0">
+              {{ row.assigned_workers.map(w => w.worker.name).join(', ') }}
+            </span>
+            <span v-else>待分配</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="total_cost" label="总费用" width="100">
+           <template #default="{ row }">
+            <span v-if="row.status === 'completed' && row.total_cost > 0">¥{{ row.total_cost }}</span>
+            <span v-else>--</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="created_at" label="创建时间" width="150">
           <template #default="{ row }">
             {{ formatDate(row.created_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200">
+        <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" size="small" @click="handleView(row)">
               查看
@@ -83,6 +96,74 @@
         style="margin-top: 20px; justify-content: center"
       />
     </div>
+
+    <!-- 订单详情对话框 -->
+    <el-dialog v-model="detailDialogVisible" title="订单详情" width="800px">
+       <div v-if="currentOrder">
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="订单号">{{ currentOrder.order_number }}</el-descriptions-item>
+          <el-descriptions-item label="状态">
+            <el-tag :type="getStatusType(currentOrder.status)">
+              {{ getStatusText(currentOrder.status) }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="客户姓名">{{ currentOrder.user?.name }}</el-descriptions-item>
+          <el-descriptions-item label="联系电话">{{ currentOrder.user?.phone }}</el-descriptions-item>
+          <el-descriptions-item label="车辆信息" :span="2">
+            {{ currentOrder.vehicle?.license_plate }} - {{ currentOrder.vehicle?.manufacturer }} {{ currentOrder.vehicle?.model }}
+          </el-descriptions-item>
+           <el-descriptions-item label="维修工人" :span="2">
+            <span v-if="currentOrder.assigned_workers && currentOrder.assigned_workers.length > 0">
+                {{ currentOrder.assigned_workers.map(w => w.worker.name).join(', ') }}
+            </span>
+            <span v-else>待分配</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="工时费" v-if="currentOrder.status === 'completed'">
+            {{ currentOrder.total_labor_cost ? `¥${currentOrder.total_labor_cost}` : '¥0.00' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="材料费" v-if="currentOrder.status === 'completed'">
+            {{ currentOrder.total_material_cost ? `¥${currentOrder.total_material_cost}` : '¥0.00' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="总费用" :span="currentOrder.status !== 'completed' ? 2 : 1">
+            <span v-if="currentOrder.status === 'completed'">
+              <strong>¥{{ currentOrder.total_cost || '0.00' }}</strong>
+            </span>
+            <span v-else>维修完成后计算</span>
+          </el-descripti_ons-item>
+          <el-descriptions-item label="创建时间">{{ formatDate(currentOrder.created_at) }}</el-descriptions-item>
+          <el-descriptions-item label="完成时间">
+            {{ currentOrder.actual_completion_time ? formatDate(currentOrder.actual_completion_time) : '-' }}
+          </el-descriptions-item>
+        </el-descriptions>
+        
+        <div style="margin-top: 20px;">
+          <h4>故障描述</h4>
+          <p>{{ currentOrder.description }}</p>
+        </div>
+
+        <div v-if="currentOrder.internal_notes" style="margin-top: 20px;">
+          <h4>维修记录/备注</h4>
+          <p style="white-space: pre-wrap;">{{ currentOrder.internal_notes }}</p>
+        </div>
+
+        <div v-if="currentOrder.status === 'completed' && currentOrder.used_materials && currentOrder.used_materials.length > 0" style="margin-top: 20px;">
+          <h4>使用材料清单</h4>
+          <el-table :data="currentOrder.used_materials" stripe border size="small">
+            <el-table-column prop="name" label="材料名称" />
+            <el-table-column prop="price" label="单价">
+              <template #default="{ row }">¥{{ row.price }}</template>
+            </el-table-column>
+            <el-table-column prop="quantity" label="数量" />
+            <el-table-column label="小计">
+              <template #default="{ row }">¥{{ (row.price * row.quantity).toFixed(2) }}</template>
+            </el-table-column>
+          </el-table>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="detailDialogVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -94,6 +175,8 @@ import dayjs from 'dayjs'
 
 const loading = ref(false)
 const tableData = ref([])
+const detailDialogVisible = ref(false)
+const currentOrder = ref(null)
 
 const searchForm = reactive({
   keyword: '',
@@ -144,9 +227,15 @@ const resetSearch = () => {
 }
 
 // 查看详情
-const handleView = (row) => {
-  // 跳转到详情页面或打开详情对话框
-  console.log('查看订单:', row)
+const handleView = async (row) => {
+  try {
+    const response = await request.get(`/repair-orders/admin/${row.id}`)
+    currentOrder.value = response
+    detailDialogVisible.value = true
+  } catch (error) {
+    ElMessage.error('获取订单详情失败')
+    console.error('获取订单详情失败:', error)
+  }
 }
 
 // 分配工人
