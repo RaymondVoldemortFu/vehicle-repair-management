@@ -51,7 +51,7 @@
 
 1. **克隆项目**
    ```bash
-   git clone https://github.com/yourusername/vehicle-repair-management.git
+   git clone https://github.com/RaymondVoldemortFu/vehicle-repair-management.git
    cd vehicle-repair-management
    ```
 
