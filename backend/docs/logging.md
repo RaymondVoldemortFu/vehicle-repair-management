@@ -260,18 +260,3 @@ tail -f logs/app.log
 4. **监控日志质量**
    - 定期检查日志格式
    - 确保日志信息完整
-
-## 扩展功能
-
-### 集中化日志管理
-- 集成ELK Stack (Elasticsearch, Logstash, Kibana)
-- 使用Fluentd进行日志收集
-
-### 实时分析
-- 集成Grafana进行可视化
-- 使用Prometheus进行监控
-
-### 机器学习
-- 异常检测
-- 模式识别
-- 预测性维护 
