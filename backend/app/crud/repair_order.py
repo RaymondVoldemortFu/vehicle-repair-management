@@ -310,21 +310,23 @@ class CRUDRepairOrder(CRUDBase[RepairOrder, RepairOrderCreate, RepairOrderUpdate
             if not material:
                 raise ValueError(f"ID为 {used_material.material_id} 的材料不存在。")
             
-            if material.stock < used_material.quantity:
-                raise ValueError(f"材料 '{material.name}' 库存不足 (需要: {used_material.quantity}, 当前: {material.stock})。")
+            if material.stock_quantity < used_material.quantity:
+                raise ValueError(f"材料 '{material.name}' 库存不足 (需要: {used_material.quantity}, 当前: {material.stock_quantity})。")
 
             # 创建关联记录
             repair_material_entry = RepairMaterial(
                 order_id=order.id,
                 material_id=material.id,
-                quantity=used_material.quantity,
-                price_at_consumption=material.price # 记录消耗时的单价
+                quantity_used=used_material.quantity,
+                unit_price=material.unit_price, # 记录消耗时的单价
+                total_cost=material.unit_price * used_material.quantity,
+                used_at=datetime.utcnow()
             )
             db.add(repair_material_entry)
             
             # 累加成本并更新库存
-            total_material_cost += material.price * used_material.quantity
-            material.stock -= used_material.quantity
+            total_material_cost += material.unit_price * used_material.quantity
+            material.stock_quantity -= used_material.quantity
             db.add(material)
 
         # 3. 计算人工成本

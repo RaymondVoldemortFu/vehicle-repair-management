@@ -171,7 +171,7 @@
               <el-option
                 v-for="material in allMaterials"
                 :key="material.id"
-                :label="`${material.name} (库存: ${material.stock})`"
+                :label="`${material.name} (库存: ${material.stock_quantity})`"
                 :value="material.id"
               />
             </el-select>

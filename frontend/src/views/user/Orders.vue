@@ -61,9 +61,9 @@
             <span v-else>待分配</span>
           </template>
         </el-table-column>
-        <el-table-column prop="estimated_cost" label="预估费用" width="100">
+        <el-table-column prop="total_cost" label="总费用" width="100">
           <template #default="{ row }">
-            <span v-if="row.estimated_cost">¥{{ row.estimated_cost }}</span>
+            <span v-if="row.status === 'completed' && row.total_cost">¥{{ parseFloat(row.total_cost).toFixed(2) }}</span>
             <span v-else>-</span>
           </template>
         </el-table-column>
@@ -177,15 +177,21 @@
           </span>
           <span v-else>待分配</span>
         </el-descriptions-item>
-        <el-descriptions-item label="预估费用">
-          {{ currentOrder.estimated_cost ? `¥${currentOrder.estimated_cost}` : '待评估' }}
+        <el-descriptions-item label="工时费" v-if="currentOrder.status === 'completed'">
+          {{ currentOrder.total_labor_cost ? `¥${parseFloat(currentOrder.total_labor_cost).toFixed(2)}` : '¥0.00' }}
         </el-descriptions-item>
-        <el-descriptions-item label="实际费用">
-          {{ currentOrder.actual_cost ? `¥${currentOrder.actual_cost}` : '-' }}
+        <el-descriptions-item label="材料费" v-if="currentOrder.status === 'completed'">
+          {{ currentOrder.total_material_cost ? `¥${parseFloat(currentOrder.total_material_cost).toFixed(2)}` : '¥0.00' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="总费用" :span="currentOrder.status !== 'completed' ? 2 : 1">
+          <span v-if="currentOrder.status === 'completed'">
+            <strong>{{ currentOrder.total_cost ? `¥${parseFloat(currentOrder.total_cost).toFixed(2)}` : '¥0.00' }}</strong>
+          </span>
+          <span v-else>维修完成后计算</span>
         </el-descriptions-item>
         <el-descriptions-item label="创建时间">{{ formatDate(currentOrder.created_at) }}</el-descriptions-item>
         <el-descriptions-item label="完成时间">
-          {{ currentOrder.completed_at ? formatDate(currentOrder.completed_at) : '-' }}
+          {{ currentOrder.actual_completion_time ? formatDate(currentOrder.actual_completion_time) : '-' }}
         </el-descriptions-item>
       </el-descriptions>
       
@@ -194,9 +200,9 @@
         <p>{{ currentOrder.description }}</p>
       </div>
 
-      <div v-if="currentOrder.repair_notes" style="margin-top: 20px;">
+      <div v-if="currentOrder.internal_notes" style="margin-top: 20px;">
         <h4>维修记录</h4>
-        <p>{{ currentOrder.repair_notes }}</p>
+        <p style="white-space: pre-wrap;">{{ currentOrder.internal_notes }}</p>
       </div>
     </el-dialog>
 

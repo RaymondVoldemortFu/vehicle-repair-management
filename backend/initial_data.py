@@ -74,14 +74,14 @@ INITIAL_WORKERS = [
 ]
 
 INITIAL_MATERIALS = [
-    {"material_code": "OIL-5W30", "name": "5W-30 全合成机油", "category": "润滑油", "price": 88.00, "unit": "升", "stock": 100},
-    {"material_code": "FILTER-OIL", "name": "机油滤清器", "category": "滤清器", "price": 35.50, "unit": "个", "stock": 200},
-    {"material_code": "FILTER-AIR", "name": "空气滤清器", "category": "滤清器", "price": 50.00, "unit": "个", "stock": 150},
-    {"material_code": "BRAKE-PAD-F", "name": "前刹车片", "category": "刹车系统", "price": 280.00, "unit": "套", "stock": 50},
-    {"material_code": "BRAKE-PAD-R", "name": "后刹车片", "category": "刹车系统", "price": 240.00, "unit": "套", "stock": 50},
-    {"material_code": "SPARK-PLUG", "name": "火花塞 (铱金)", "category": "点火系统", "price": 75.00, "unit": "支", "stock": 300},
-    {"material_code": "BATTERY-60AH", "name": "60Ah 汽车电瓶", "category": "电气系统", "price": 450.00, "unit": "个", "stock": 30},
-    {"material_code": "TYRE-205-55-R16", "name": "轮胎 205/55 R16", "category": "轮胎", "price": 380.00, "unit": "条", "stock": 40},
+    {"material_code": "OIL-5W30", "name": "5W-30 全合成机油", "category": "润滑油", "unit_price": 88.00, "unit": "升", "stock_quantity": 100},
+    {"material_code": "FILTER-OIL", "name": "机油滤清器", "category": "滤清器", "unit_price": 35.50, "unit": "个", "stock_quantity": 200},
+    {"material_code": "FILTER-AIR", "name": "空气滤清器", "category": "滤清器", "unit_price": 50.00, "unit": "个", "stock_quantity": 150},
+    {"material_code": "BRAKE-PAD-F", "name": "前刹车片", "category": "刹车系统", "unit_price": 280.00, "unit": "套", "stock_quantity": 50},
+    {"material_code": "BRAKE-PAD-R", "name": "后刹车片", "category": "刹车系统", "unit_price": 240.00, "unit": "套", "stock_quantity": 50},
+    {"material_code": "SPARK-PLUG", "name": "火花塞 (铱金)", "category": "点火系统", "unit_price": 75.00, "unit": "支", "stock_quantity": 300},
+    {"material_code": "BATTERY-60AH", "name": "60Ah 汽车电瓶", "category": "电气系统", "unit_price": 450.00, "unit": "个", "stock_quantity": 30},
+    {"material_code": "TYRE-205-55-R16", "name": "轮胎 205/55 R16", "category": "轮胎", "unit_price": 380.00, "unit": "条", "stock_quantity": 40},
 ]
 
 
@@ -120,18 +120,9 @@ def init_db(db: Session) -> None:
     for material_data in INITIAL_MATERIALS:
         material = material_crud.get_by_code(db, code=material_data["material_code"])
         if not material:
-            # 分离 schema 中定义的字段和数据库模型中额外的字段
-            material_code = material_data.pop("material_code")
-            category = material_data.pop("category")
-            
             material_in = MaterialCreate(**material_data)
-            material_crud.create(db, obj_in=material_in, material_code=material_code, category=category)
-            
-            # 把弹出的 key 加回去，以防万一（虽然在这个脚本里不需要）
-            material_data["material_code"] = material_code
-            material_data["category"] = category
-            
-            logger.info(f"Material '{material_data['name']}' ({material_code}) created.")
+            material_crud.create(db, obj_in=material_in)
+            logger.info(f"Material '{material_data['name']}' ({material_data['material_code']}) created.")
         else:
             logger.info(f"Material '{material_data['name']}' ({material_data['material_code']}) already exists.")
 
