@@ -3,9 +3,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.config.database import get_db
-from app.core.deps import get_current_active_admin
+from app.core.deps import get_current_active_admin, get_current_active_worker
 from app.crud.material import material_crud
 from app.models.admin import Admin
+from app.models.repair_worker import RepairWorker
 from app.schemas.material import MaterialCreate, MaterialUpdate, MaterialResponse
 from app.schemas.base import MessageResponse, PaginationParams, PaginatedResponse
 
@@ -24,13 +25,14 @@ def create_material(
     return material_crud.create(db=db, obj_in=material_in)
 
 
-@router.get("/", response_model=PaginatedResponse[MaterialResponse], dependencies=[Depends(get_current_active_admin)])
+@router.get("/", response_model=PaginatedResponse[MaterialResponse])
 def read_materials(
     db: Session = Depends(get_db),
     pagination: PaginationParams = Depends(),
+    current_user: Any = Depends(get_current_active_worker),
 ) -> Any:
     """
-    获取材料列表 (分页, 管理员)
+    获取材料列表 (分页)
     """
     materials = material_crud.get_multi(db, skip=pagination.get_offset(), limit=pagination.size)
     total = material_crud.count(db)

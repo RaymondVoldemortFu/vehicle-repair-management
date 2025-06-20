@@ -161,9 +161,9 @@ def search_worker_by_employee_id(
 @router.get("/statistics/overview", response_model=dict)
 def get_worker_statistics(
     db: Session = Depends(get_db),
-    current_admin: Admin = Depends(get_current_active_admin),
+    current_worker: RepairWorker = Depends(get_current_active_worker),
 ) -> Any:
-    """获取维修工人统计信息（管理员专用）"""
+    """获取维修工人自己的统计信息"""
     total_workers = repair_worker_crud.count(db)
     available_workers = len(repair_worker_crud.get_available_workers(db))
     

@@ -206,7 +206,8 @@ const calculateSummary = (wages) => {
 
 const getStatusText = (status) => {
   const map = {
-    calculated: '核算中',
+    pending: '待处理',
+    confirmed: '已确认',
     paid: '已发放',
     disputed: '争议中',
   }
@@ -215,7 +216,8 @@ const getStatusText = (status) => {
 
 const getStatusType = (status) => {
   const map = {
-    calculated: 'warning',
+    pending: 'info',
+    confirmed: 'primary',
     paid: 'success',
     disputed: 'danger',
   }

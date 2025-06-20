@@ -342,9 +342,53 @@ class CRUDRepairOrder(CRUDBase[RepairOrder, RepairOrderCreate, RepairOrderUpdate
         order.internal_notes = (order.internal_notes or "") + "\n[工作描述] " + (completion_data.work_description or "无")
 
         db.add(order)
+
+        # 发放工时费
+        self.distribute_wages(db, order, work_hours=Decimal(str(completion_data.work_hours)))
+
         db.commit()
         db.refresh(order)
         return order
+
+    def distribute_wages(self, db: Session, order: RepairOrder, work_hours: Decimal):
+        """为完成订单的工人发放工资"""
+        if order.status != OrderStatus.COMPLETED:
+            return
+
+        assigned_worker_records = order.assigned_workers
+        if not assigned_worker_records:
+            return
+
+        num_workers = len(assigned_worker_records)
+        wage_per_worker = order.total_labor_cost / num_workers
+        work_hours_per_worker = work_hours / num_workers
+
+        current_period = datetime.utcnow().strftime("%Y-%m")
+
+        for assignment in assigned_worker_records:
+            worker = assignment.worker
+            
+            # 查找或创建当月工资单
+            wage = db.query(Wage).filter(
+                Wage.worker_id == worker.id,
+                Wage.period == current_period
+            ).first()
+
+            if not wage:
+                wage = Wage(
+                    worker_id=worker.id,
+                    period=current_period,
+                    base_salary=Decimal("0.0"),
+                    total_amount=Decimal("0.0"),
+                    overtime_hours=Decimal("0.0")
+                )
+                db.add(wage)
+            
+            # 更新工资和工时
+            wage.base_salary += wage_per_worker
+            wage.total_amount += wage_per_worker
+            wage.overtime_hours += work_hours_per_worker
+            db.add(wage)
 
     def get_revenue_by_month(self, db: Session, year: int, month: int) -> Decimal:
         """根据年月计算总收入"""
