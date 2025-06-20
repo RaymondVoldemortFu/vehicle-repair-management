@@ -62,7 +62,7 @@
         <el-table-column prop="unit" label="单位" width="80" />
         <el-table-column prop="unit_price" label="单价" width="100">
           <template #default="{ row }">
-            ¥{{ row.unit_price.toFixed(2) }}
+            ¥{{ parseFloat(row.unit_price).toFixed(2) }}
           </template>
         </el-table-column>
         <el-table-column prop="stock_quantity" label="当前库存" width="100">

@@ -129,7 +129,7 @@
               <strong>¥{{ currentOrder.total_cost || '0.00' }}</strong>
             </span>
             <span v-else>维修完成后计算</span>
-          </el-descripti_ons-item>
+          </el-descriptions-item>
           <el-descriptions-item label="创建时间">{{ formatDate(currentOrder.created_at) }}</el-descriptions-item>
           <el-descriptions-item label="完成时间">
             {{ currentOrder.actual_completion_time ? formatDate(currentOrder.actual_completion_time) : '-' }}
