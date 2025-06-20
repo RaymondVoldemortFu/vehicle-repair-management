@@ -29,7 +29,9 @@ def create_vehicle(
         )
     
     # 设置车辆所有者为当前用户
-    vehicle = vehicle_crud.create(db, obj_in=vehicle_in, user_id=current_user.id)
+    vehicle_in.user_id = current_user.id
+    vehicle_in = vehicle_in.dict()
+    vehicle = vehicle_crud.create(db, obj_in=vehicle_in)
     return vehicle
 
 

@@ -15,7 +15,7 @@ class VehicleBase(BaseSchema):
     color: Optional[str] = Field(None, max_length=50, description="颜色")
     mileage: Optional[int] = Field(None, ge=0, description="里程数")
     purchase_date: Optional[date] = Field(None, description="购买日期")
-    status: VehicleStatus
+    status: VehicleStatus = Field(default=VehicleStatus.ACTIVE, description="车辆状态")
 
     class Config:
         orm_mode = True
